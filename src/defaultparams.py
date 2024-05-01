@@ -43,6 +43,11 @@ TimeStepping = {
 		# Time step size (2nd priority)
 	"CFL" : None,
 		# CFL number (3rd priority)
+	"InitialCFL": None,
+    "FinalCFL": None,
+    "RampIterations": None,
+		# initial and final CFL ramp values (3rd priority),
+		# and the number of iterations to ramp over
 	"TimeStepper" : "RK4",
 		# Time stepping scheme
 		# See general.StepperType

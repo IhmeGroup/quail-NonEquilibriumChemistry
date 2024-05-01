@@ -164,6 +164,22 @@ def test_get_dt_from_cfl_yields_one():
 
 	np.testing.assert_allclose(dt, 1.0, rtol, atol)
 
+def test_get_dt_from_cfl_ramp():
+	solver = create_solver_object()
+	solver.params["CFL"] = None
+	i0 = 10
+	ramp = 9
+	cfl_i=0.01
+	cfl_f = 0.1
+	solver.params["RampIterations"] = ramp
+	solver.params["InitialCFL"] = cfl_i
+	solver.params["FinalCFL"] = cfl_f
+	solver.itime_initial = i0
+	for i in range(i0, i0+ramp):
+		solver.itime = i
+		dt = stepper_tools.get_dt_from_cfl(solver.stepper, solver)
+		actual = (cfl_f-cfl_i)/ramp*(i-i0)+cfl_i
+		np.testing.assert_allclose(dt, actual, rtol, atol)
 
 def test_get_dt_from_timestepsize_and_finaltime():
 	'''

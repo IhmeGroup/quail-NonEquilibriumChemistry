@@ -111,6 +111,8 @@ def set_time_stepping_approach(stepper, params):
 
 	# Unpack time stepping settings
 	cfl = params["CFL"]
+	ramp_inputs = [params["InitialCFL"], params["FinalCFL"],
+				   params["RampIterations"]]
 	dt = params["TimeStepSize"]
 	num_time_steps = params["NumTimeSteps"]
 	tfinal = params["FinalTime"]
@@ -129,7 +131,7 @@ def set_time_stepping_approach(stepper, params):
 	elif dt != None and tfinal != None:
 		stepper.get_time_step = get_dt_from_timestepsize
 		stepper.num_time_steps = math.ceil(tfinal/dt)
-	elif cfl != None:
+	elif cfl != None or all([val is not None for val in ramp_inputs]):
 		stepper.get_time_step = get_dt_from_cfl
 		stepper.num_time_steps = 1
 	elif num_time_steps != None and tfinal == None:
@@ -191,8 +193,14 @@ def get_dt_from_timestepsize(stepper, solver):
 
 def get_dt_from_cfl(stepper, solver):
 	'''
-	Calculates dt using a specified CFL number. Updates at everytime step to
-	ensure solution remains within the CFL bound.
+	Calculates dt using a specified CFL number, or by calculating based
+	on ramp inputs. Updates at everytime step to ensure solution remains
+	within the CFL bound.
+
+	With ramping, the CFL can be ramped up or down, depending on the
+	relative values of the initial and final CFL specified by the user.
+	Once the ramp iterations have been exceeded, CFL will be held constant
+	at its final ramp value.
 
 	Inputs:
 	-------
@@ -213,6 +221,22 @@ def get_dt_from_cfl(stepper, solver):
 	tfinal = solver.params["FinalTime"]
 	stepper.tfinal = tfinal
 	cfl = solver.params["CFL"]
+	if cfl is None:
+		itime_initial = solver.itime_initial
+		itime = solver.itime
+		ramp_iters = solver.params["RampIterations"]
+		cfl_initial = solver.params["InitialCFL"]
+		cfl_final = solver.params["FinalCFL"]
+		cfl = (
+			(cfl_final - cfl_initial) / ramp_iters
+			* (itime - itime_initial) + cfl_initial
+		)
+		# don't go beyond initial or final bounds
+		# handles ramping up or down
+		cfl = np.minimum(cfl, np.maximum(cfl_initial, cfl_final))
+		cfl = np.maximum(cfl, np.minimum(cfl_initial, cfl_final))
+		print("%d: CFL = %g - CFL_i = %g - CFL_f = %g" % (
+			  itime - itime_initial + 1, cfl, cfl_initial, cfl_final))
 
 	elem_helpers = solver.elem_helpers
 	vol_elems = elem_helpers.vol_elems
