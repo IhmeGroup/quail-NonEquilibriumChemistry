@@ -125,6 +125,7 @@ class SolverBase(ABC):
 
 		self.time = params["InitialTime"]
 		self.itime = 0
+		self.itime_initial = self.itime
 
 		# Set solution basis and order
 		self.order = params["SolutionOrder"]
