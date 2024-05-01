@@ -83,7 +83,8 @@ class PositivityPreserving(base.LimiterBase):
 	djac_elems: numpy array
 		stores Jacobian determinants for each element
 	'''
-	COMPATIBLE_PHYSICS_TYPES = general.PhysicsType.Euler
+	COMPATIBLE_PHYSICS_TYPES = [general.PhysicsType.Euler, \
+		general.PhysicsType.NavierStokes]
 
 	def __init__(self, physics_type):
 		super().__init__(physics_type)

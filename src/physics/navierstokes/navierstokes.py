@@ -42,6 +42,7 @@ from physics.euler.functions import FcnType as euler_fcn_type
 from physics.euler.functions import SourceType as euler_source_type
 
 import physics.navierstokes.functions as navierstokes_fcns
+from physics.navierstokes.functions import BCType as navierstokes_bc_type
 from physics.navierstokes.functions import FcnType as navierstokes_fcn_type
 from physics.navierstokes.functions import SourceType as \
 		navierstokes_source_type
@@ -78,6 +79,13 @@ class NavierStokes(euler.Euler):
 			base_diff_num_flux_type.SIP : 
 				base_fcns.SIP,
 			})
+		
+		self.BC_map.update({
+			base_BC_type.StateAll : base_fcns.StateAll,
+			base_BC_type.Extrapolate : base_fcns.Extrapolate,
+			navierstokes_bc_type.IsothermalWall :
+					navierstokes_fcns.IsothermalWall,
+		})
 
 	def set_physical_params(self, GasConstant=287., SpecificHeatRatio=1.4, 
 			PrandtlNumber=0.7, Viscosity=1.0, s=1.0, T0=1.0, beta=1.5):

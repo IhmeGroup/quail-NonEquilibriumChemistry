@@ -45,7 +45,7 @@ class BCType(Enum):
 	Enum class that stores the types of boundary conditions. These
 	boundary conditions are specific to the available Euler equation sets.
 	'''
-	pass
+	IsothermalWall = auto()
 
 
 
@@ -466,6 +466,50 @@ and methods. Information specific to the corresponding child classes can be
 found below. These classes should correspond to the BCType enum members
 above.
 '''
+
+class IsothermalWall(BCWeakPrescribed):
+	'''
+	This class corresponds to a viscous Isothermal wall. See documentation for more
+	details.
+	'''
+	def __init__(self, twall):
+		'''
+		This method initializes the attributes.
+
+		Inputs:
+		-------
+			twall: wall temperature
+
+		Outputs:
+		--------
+		    self: attributes initialized
+		'''
+		self.twall = twall
+
+	def get_boundary_state(self, physics, UqI, normals, x, t):
+		UqB = UqI.copy()
+
+		# Interior pressure
+		pI = physics.compute_variable("Pressure", UqI)
+		if np.any(pI < 0.):
+			raise errors.NotPhysicalError
+
+		# Boundary density
+		srho = physics.get_state_slice("Density")
+		# wall pressure pB = pI
+		UqB[:, :, srho] = pI / (physics.R * self.twall)
+
+		# Boundary velocity
+		smom = physics.get_momentum_slice()
+		UqB[:, :, smom] = 0.
+
+		# Boundary energy
+		srhoE = physics.get_state_slice("Energy")
+		cv = physics.R / (physics.gamma - 1)
+		rhoB = UqB[:, :, srho]
+		UqB[:, :, srhoE] = rhoB * cv * self.twall
+
+		return UqB
 
 
 '''
