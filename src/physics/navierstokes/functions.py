@@ -46,6 +46,7 @@ class BCType(Enum):
 	boundary conditions are specific to the available Euler equation sets.
 	'''
 	IsothermalWall = auto()
+	AdiabaticWall = auto()
 
 
 
@@ -508,6 +509,51 @@ class IsothermalWall(BCWeakPrescribed):
 		cv = physics.R / (physics.gamma - 1)
 		rhoB = UqB[:, :, srho]
 		UqB[:, :, srhoE] = rhoB * cv * self.twall
+
+		return UqB
+
+class AdiabaticWall(BCWeakPrescribed):
+	'''
+	This class corresponds to a viscous wall with zero flux
+	(adiabatic). See documentation for more details.
+	'''
+	def __init__(self):
+		'''
+		This method initializes the attributes.
+
+		Outputs:
+		--------
+		    self: attributes initialized
+		'''
+		pass
+
+	def get_boundary_state(self, physics, UqI, normals, x, t):
+		UqB = UqI.copy()
+
+		pI = physics.compute_variable("Pressure", UqI)
+		if np.any(pI < 0.):
+			raise errors.NotPhysicalError
+		# boundary pressure = interior pressure
+
+		# Interior temperature
+		tempI = physics.compute_variable("Temperature", UqI)
+		if np.any(tempI < 0.):
+			raise errors.NotPhysicalError
+		# boundary temperature = interior temperature (q=0)
+
+		# thus boundary density = interior density
+
+		# Boundary velocity
+		smom = physics.get_momentum_slice()
+		UqB[:, :, smom] = 0.
+
+		# Boundary energy
+		# srho = physics.get_state_slice("Density")
+		srhoE = physics.get_state_slice("Energy")
+		UqB[:, :, srhoE] = pI/(physics.gamma - 1)
+		# cv = physics.R / (physics.gamma - 1)
+		# rhoB = UqB[:, :, srho]
+		# UqB[:, :, srhoE] = rhoB * cv * tempI
 
 		return UqB
 
