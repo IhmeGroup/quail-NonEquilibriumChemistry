@@ -433,11 +433,17 @@ class RiemannProblem(FcnBase):
     def get_state(self, physics, x, t):
         ''' Unpack '''
         xd = self.xd
-        gamma = physics.thermo.gamma
         srho, srhou, srhoE = physics.get_state_slices()
 
         rho4 = self.rhoL; p4 = self.pL; u4 = self.uL
         rho1 = self.rhoR; p1 = self.pR; u1 = self.uR
+
+        # Set the thermodynamic state in region 1
+        Yi = physics.thermo.default_Y[None, None, :]
+        rhoi_tmp = rho1 * Yi
+        p_tmp = np.array([p1])[None, None, :]
+        physics.thermo.set_state_from_rhoi_p(rhoi_tmp, p_tmp)
+        gamma = np.array(physics.thermo.gamma).flatten()[0]
 
         # Speeds of sound in regions 1 and 4
         c4 = np.sqrt(gamma*p4/rho4)
@@ -514,7 +520,7 @@ class RiemannProblem(FcnBase):
                     u[i,j] = u1; p[i,j] = p1; rho[i,j] = rho1
 
         Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
-        Uq[:, :, srho] = rho
+        Uq[:, :, srho] = rho*Yi
         Uq[:, :, srhou] = rho*u
         Uq[:, :, srhoE] = p/(gamma-1.) + 0.5*rho*u*u
 
@@ -968,11 +974,11 @@ class LaxFriedrichs2D(ConvNumFluxBase):
         n_hat = normals/n_mag
 
         # Left flux
-        FqL, (u2L, v2L, rhoL, pL) = physics.get_conv_flux_projected(UqL,
+        FqL, (gammaL, u2L, rhoL, pL) = physics.get_conv_flux_projected(UqL,
                 n_hat)
 
         # Right flux
-        FqR, (u2R, v2R, rhoR, pR) = physics.get_conv_flux_projected(UqR,
+        FqR, (gammaR, u2R, rhoR, pR) = physics.get_conv_flux_projected(UqR,
                 n_hat)
 
         # Jump
@@ -981,8 +987,8 @@ class LaxFriedrichs2D(ConvNumFluxBase):
         # Max wave speeds at each point
         aL = np.empty(pL.shape + (1,))
         aR = np.empty(pR.shape + (1,))
-        aL[:, :, 0] = np.sqrt(u2L + v2L) + np.sqrt(physics.thermo.gamma * pL / rhoL)
-        aR[:, :, 0] = np.sqrt(u2R + v2R) + np.sqrt(physics.thermo.gamma * pR / rhoR)
+        aL[:, :, 0] = np.sqrt(u2L) + np.sqrt(gammaL * pL / rhoL)
+        aR[:, :, 0] = np.sqrt(u2R) + np.sqrt(gammaR * pR / rhoR)
         idx = aR > aL
         aL[idx] = aR[idx]
 
@@ -1033,25 +1039,23 @@ class Roe1D(ConvNumFluxBase):
             n = Uq.shape[0]
             nq = Uq.shape[1]
             ns = Uq.shape[-1]
-            ndims = ns - 2
         else:
-            n = nq = ns = ndims = 0
+            n = nq = ns = 0
 
         self.UqL = np.zeros_like(Uq)
         self.UqR = np.zeros_like(Uq)
-        self.vel = np.zeros([n, nq, ndims])
         self.alphas = np.zeros_like(Uq)
         self.evals = np.zeros_like(Uq)
         self.R = np.zeros([n, nq, ns, ns])
 
-    def rotate_coord_sys(self, smom, Uq, n):
+    def rotate_coord_sys(self, srhou, Uq, n):
         '''
         This method expresses the momentum vector in the rotated coordinate
         system, which is aligned with the face normal and tangent.
 
         Inputs:
         -------
-            smom: momentum slice
+            srhou: momentum slice
             Uq: values of the state variable (typically at the quadrature
                 points) [nf, nq, ns]
             n: normals (typically at the quadrature points) [nf, nq, ndims]
@@ -1060,18 +1064,18 @@ class Roe1D(ConvNumFluxBase):
         --------
             Uq: momentum terms modified
         '''
-        Uq[:, :, smom] *= n
+        Uq[:, :, srhou] *= n
 
         return Uq
 
-    def undo_rotate_coord_sys(self, smom, Uq, n):
+    def undo_rotate_coord_sys(self, srhou, Uq, n):
         '''
         This method expresses the momentum vector in the standard coordinate
         system. It "undoes" the rotation above.
 
         Inputs:
         -------
-            smom: momentum slice
+            srhou: momentum slice
             Uq: values of the state variable (typically at the quadrature
                 points) [nf, nq, ns]
             n: normals (typically at the quadrature points) [nf, nq, ndims]
@@ -1080,71 +1084,66 @@ class Roe1D(ConvNumFluxBase):
         --------
             Uq: momentum terms modified
         '''
-        Uq[:, :, smom] /= n
+        Uq[:, :, srhou] /= n
 
         return Uq
 
-    def roe_average_state(self, physics, srho, velL, velR, UqL, UqR):
+    def roe_average_state(self, rhoL, rhoR, velL, velR, HL, HR):
         '''
         This method computes the Roe-averaged variables.
 
         Inputs:
         -------
-            physics: physics object
-            srho: density slice
-            velL: left velocity (typically evaluated at the quadrature
-                points) [nf, nq, ndims]
-            velR: right velocity (typically evaluated at the quadrature
-                points) [nf, nq, ndims]
-            UqL: left state (typically evaluated at the quadrature
-                points) [nf, nq, ns]
-            UqR: right state (typically evaluated at the quadrature
-                points) [nf, nq, ns]
+        physics: physics object
+        srho: density slice
+        velL: left velocity (typically evaluated at the quadrature
+            points) [nf, nq, ndims]
+        velR: right velocity (typically evaluated at the quadrature
+            points) [nf, nq, ndims]
+        UqL: left state (typically evaluated at the quadrature
+            points) [nf, nq, ns]
+        UqR: right state (typically evaluated at the quadrature
+            points) [nf, nq, ns]
 
         Outputs:
         --------
-            rhoRoe: Roe-averaged density [nf, nq, 1]
-            velRoe: Roe-averaged velocity [nf, nq, ndims]
-            HRoe: Roe-averaged total enthalpy [nf, nq, 1]
+        rhoRoe: Roe-averaged density [nf, nq, 1]
+        velRoe: Roe-averaged velocity [nf, nq, ndims]
+        HRoe: Roe-averaged total enthalpy [nf, nq, 1]
         '''
-        rhoL_sqrt = np.sqrt(UqL[:, :, srho])
-        rhoR_sqrt = np.sqrt(UqR[:, :, srho])
-        HL = physics.compute_variable("TotalEnthalpy", UqL)
-        HR = physics.compute_variable("TotalEnthalpy", UqR)
+        rhoL_sqrt = np.sqrt(rhoL)
+        rhoR_sqrt = np.sqrt(rhoR)
 
         velRoe = (rhoL_sqrt*velL + rhoR_sqrt*velR)/(rhoL_sqrt+rhoR_sqrt)
-        HRoe = (rhoL_sqrt*HL + rhoR_sqrt*HR)/(rhoL_sqrt+rhoR_sqrt)
         rhoRoe = rhoL_sqrt*rhoR_sqrt
+        HRoe = (rhoL_sqrt*HL + rhoR_sqrt*HR)/(rhoL_sqrt+rhoR_sqrt)
 
         return rhoRoe, velRoe, HRoe
 
-    def get_differences(self, physics, srho, velL, velR, UqL, UqR):
+    def get_differences(self, rhoL, rhoR, velL, velR, pL, pR):
         '''
         This method computes velocity, density, and pressure jumps.
 
         Inputs:
         -------
-            physics: physics object
-            srho: density slice
-            velL: left velocity (typically evaluated at the quadrature
-                points) [nf, nq, ndims]
-            velR: right velocity (typically evaluated at the quadrature
-                points) [nf, nq, ndims]
-            UqL: left state (typically evaluated at the quadrature
-                points) [nf, nq, ns]
-            UqR: right state (typically evaluated at the quadrature
-                points) [nf, nq, ns]
+        velL: left velocity (typically evaluated at the quadrature
+            points) [nf, nq, ndims]
+        velR: right velocity (typically evaluated at the quadrature
+            points) [nf, nq, ndims]
+        UqL: left state (typically evaluated at the quadrature
+            points) [nf, nq, ns]
+        UqR: right state (typically evaluated at the quadrature
+            points) [nf, nq, ns]
 
         Outputs:
         --------
-            drho: density jump [nf, nq, 1]
-            dvel: velocity jump [nf, nq, ndims]
-            dp: pressure jump [nf, nq, 1]
+        drho: density jump [nf, nq, 1]
+        dvel: velocity jump [nf, nq, ndims]
+        dp: pressure jump [nf, nq, 1]
         '''
         dvel = velR - velL
-        drho = UqR[:, :, srho] - UqL[:, :, srho]
-        dp = physics.compute_variable("Pressure", UqR) - \
-                physics.compute_variable("Pressure", UqL)
+        drho = rhoR - rhoL
+        dp = pR - pL
 
         return drho, dvel, dp
 
@@ -1167,9 +1166,9 @@ class Roe1D(ConvNumFluxBase):
         '''
         alphas = self.alphas
 
-        alphas[:, :, 0:1] = 0.5/c2*(dp - c*rhoRoe*dvel[:, :, 0:1])
-        alphas[:, :, 1:2] = drho - dp/c2
-        alphas[:, :, -1:] = 0.5/c2*(dp + c*rhoRoe*dvel[:, :, 0:1])
+        alphas[:, :, [0]] = 0.5/c2*(dp - c*rhoRoe*dvel[:, :, [0]])
+        alphas[:, :, 1:-1] = drho - dp/c2
+        alphas[:, :, [-1]] = 0.5/c2*(dp + c*rhoRoe*dvel[:, :, [0]])
 
         return alphas
 
@@ -1188,9 +1187,9 @@ class Roe1D(ConvNumFluxBase):
         '''
         evals = self.evals
 
-        evals[:, :, 0:1] = velRoe[:, :, 0:1] - c
-        evals[:, :, 1:2] = velRoe[:, :, 0:1]
-        evals[:, :, -1:] = velRoe[:, :, 0:1] + c
+        evals[:, :, [0]] = velRoe[:, :, [0]] - c
+        evals[:, :, 1:-1] = velRoe[:, :, [0]]
+        evals[:, :, [-1]] = velRoe[:, :, [0]] + c
 
         return evals
 
@@ -1212,7 +1211,8 @@ class Roe1D(ConvNumFluxBase):
         R = self.R
 
         # first row
-        R[:, :, 0, 0:2] = 1.; R[:, :, 0, -1] = 1.
+        R[:, :, 0, 0:2] = 1.
+        R[:, :, 0, -1] = 1.
         # second row
         R[:, :, 1, 0] = evals[:, :, 0]; R[:, :, 1, 1] = velRoe[:, :, 0]
         R[:, :, 1, -1] = evals[:, :, -1]
@@ -1238,8 +1238,7 @@ class Roe1D(ConvNumFluxBase):
 
         # Unpack
         srho = physics.get_state_slice("Density")
-        smom = physics.get_state_slice("Momentum")
-        gamma = physics.thermo.gamma
+        srhou = physics.get_state_slice("Momentum")
 
         # Unit normals
         n_mag = np.linalg.norm(normals, axis=2, keepdims=True)
@@ -1250,16 +1249,28 @@ class Roe1D(ConvNumFluxBase):
         UqR = UqR_std.copy()
 
         # Rotated coordinate system
-        UqL = self.rotate_coord_sys(smom, UqL, n_hat)
-        UqR = self.rotate_coord_sys(smom, UqR, n_hat)
+        UqL = self.rotate_coord_sys(srhou, UqL, n_hat)
+        UqR = self.rotate_coord_sys(srhou, UqR, n_hat)
 
-        # Velocities
-        velL = UqL[:, :, smom]/UqL[:, :, srho]
-        velR = UqR[:, :, smom]/UqR[:, :, srho]
+        # Get left state
+        physics.set_thermo_state(UqL)
+        gamma = physics.thermo.gamma
+        YL = physics.thermo.Y
+        rhoL = physics.thermo.rho
+        velL = physics.velocity
+        pL = physics.thermo.p
+        HL = physics.thermo.h + physics.kinetic_energy / rhoL
+
+        # Get right state
+        physics.set_thermo_state(UqR)
+        YR = physics.thermo.Y
+        rhoR = physics.thermo.rho
+        velR = physics.velocity
+        pR = physics.thermo.p
+        HR = physics.thermo.h + physics.kinetic_energy / rhoR
 
         # Roe-averaged state
-        rhoRoe, velRoe, HRoe = self.roe_average_state(physics, srho, velL,
-                velR, UqL, UqR)
+        rhoRoe, velRoe, HRoe = self.roe_average_state(rhoL, rhoR, velL, velR, HL, HR)
 
         # Speed of sound from Roe-averaged state
         c2 = (gamma - 1.)*(HRoe - 0.5*np.sum(velRoe*velRoe, axis=2,
@@ -1270,8 +1281,7 @@ class Roe1D(ConvNumFluxBase):
         c = np.sqrt(c2)
 
         # Jumps
-        drho, dvel, dp = self.get_differences(physics, srho, velL, velR,
-                UqL, UqR)
+        drho, dvel, dp = self.get_differences(rhoL, rhoR, velL, velR, pL, pR)
 
         # alphas (left eigenvectors multiplied by dU)
         alphas = self.get_alphas(c, c2, dp, dvel, drho, rhoRoe)
@@ -1295,7 +1305,7 @@ class Roe1D(ConvNumFluxBase):
         FRoe = np.einsum('ijkl, ijl -> ijk', R, np.abs(evals)*alphas)
 
         # Undo rotation
-        FRoe = self.undo_rotate_coord_sys(smom, FRoe, n_hat)
+        FRoe = self.undo_rotate_coord_sys(srhou, FRoe, n_hat)
 
         # Left flux
         FL, _ = physics.get_conv_flux_projected(UqL_std, n_hat)
@@ -1313,26 +1323,26 @@ class Roe2D(Roe1D):
     In this class, several methods are updated to account for the extra
     dimension.
     '''
-    def rotate_coord_sys(self, smom, Uq, n):
+    def rotate_coord_sys(self, srhou, Uq, n):
         vel = self.vel
-        vel[:] = Uq[:, :, smom]
+        vel[:] = Uq[:, :, srhou]
 
-        vel[:, :, 0] = np.sum(Uq[:, :, smom]*n, axis=2)
-        vel[:, :, 1] = np.sum(Uq[:, :, smom]*n[:, :, ::-1]*np.array([[-1.,
+        vel[:, :, 0] = np.sum(Uq[:, :, srhou]*n, axis=2)
+        vel[:, :, 1] = np.sum(Uq[:, :, srhou]*n[:, :, ::-1]*np.array([[-1.,
                 1.]]), axis=2)
 
-        Uq[:, :, smom] = vel
+        Uq[:, :, srhou] = vel
 
         return Uq
 
-    def undo_rotate_coord_sys(self, smom, Uq, n):
+    def undo_rotate_coord_sys(self, srhou, Uq, n):
         vel = self.vel
-        vel[:] = Uq[:, :, smom]
+        vel[:] = Uq[:, :, srhou]
 
-        vel[:, :, 0] = np.sum(Uq[:, :, smom]*n*np.array([[1., -1.]]), axis=2)
-        vel[:, :, 1] = np.sum(Uq[:, :, smom]*n[:, :, ::-1], axis=2)
+        vel[:, :, 0] = np.sum(Uq[:, :, srhou]*n*np.array([[1., -1.]]), axis=2)
+        vel[:, :, 1] = np.sum(Uq[:, :, srhou]*n[:, :, ::-1], axis=2)
 
-        Uq[:, :, smom] = vel
+        Uq[:, :, srhou] = vel
 
         return Uq
 

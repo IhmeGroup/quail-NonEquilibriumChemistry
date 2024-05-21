@@ -398,8 +398,6 @@ def driver(deck):
 
     # Initialize equation of state
     thermo = set_thermo(**physics_params)
-    print(thermo)
-    print(thermo.NUM_SPECIES)
 
     # Initialize transport properties
     transport = set_transport(**physics_params)

@@ -132,8 +132,12 @@ class ThermoBase(ABC):
 
     @property
     def c(self):
+        return np.sqrt(self.gamma*self.dpdrho)
+
+    @property
+    def p_jac(self):
         raise NotImplementedError("Current thermodynamic model does " +
-                                  "not implement speed of sound calculation.")
+                                  "not implement pressure derivatives.")
 
     @property
     def dpdrho(self):
@@ -154,12 +158,6 @@ class ThermoBase(ABC):
     def set_state_from_rhoi_e(self, rhoi, e):
         pass
 
-    def get_thermal_conductivity(self):
-        pass
-
-    def get_diffusion_coefficients(self):
-        pass
-
 
 class CaloricallyPerfectGas(ThermoBase):
     '''
@@ -172,7 +170,7 @@ class CaloricallyPerfectGas(ThermoBase):
         super().__init__()
         self.gamma = SpecificHeatRatio
         self.R = GasConstant
-        self.Y = 1.0
+        self.Y = self.default_Y = np.array([1.0])
         self.inputs = None
 
         self.cv = self.R / (self.gamma - 1.0)
@@ -189,10 +187,6 @@ class CaloricallyPerfectGas(ThermoBase):
         return np.log(self.p / self.rho**self.gamma)
 
     @property
-    def c(self):
-        return np.sqrt(self.gamma*self.p/self.rho)
-
-    @property
     def p_jac(self):
         if self.inputs == 'rhoi_e':
             dpdrhoi = (self.gamma-1.0)*self.e
@@ -206,11 +200,12 @@ class CaloricallyPerfectGas(ThermoBase):
             raise NotImplementedError
 
     @property
-    def dpdrhoE(self):
-        return self.gamma - 1.0
+    def dpdrho(self):
+        return self.p / self.rho
 
     def set_state_from_rhoi_p(self, rhoi, p):
         self.rho = rhoi.sum(axis=2, keepdims=True)
+        self.Y = rhoi / self.rho
         self.p = p
 
         RT = self.p / self.rho
@@ -221,18 +216,20 @@ class CaloricallyPerfectGas(ThermoBase):
         self.inputs = 'rhoi_p'
 
     def set_state_from_Y_T_p(self, Y, T, p):
+        self.Y = Y
         self.T = T
         self.p = p
 
         RT = self.R * self.T
 
         self.rho = p / RT
-        self.e = self.R * self.T / (self.gamma - 1.0)
+        self.e = RT / (self.gamma - 1.0)
 
         self.inputs = 'Y_T_p'
 
     def set_state_from_rhoi_e(self, rhoi, e):
         self.rho = rhoi.sum(axis=2, keepdims=True)
+        self.Y = rhoi / self.rho
         self.e = e
         self.p = (self.gamma - 1.0)*(self.rho * self.e)
         self.T = self.p / (self.R * self.rho)
@@ -256,28 +253,38 @@ class CanteraThermo(ThermoBase):
 
         # Initialize the gas phase
         self.gas = ct.Solution(Mechanism)
+        self.species_names = self.gas.species_names
+        self.default_Y = self.gas.Y
 
         self.solution = None
 
     @property
     def T(self):
-        return self.solution.T
+        return self.solution.T[..., None]
 
     @property
     def p(self):
-        return self.solution.P
+        return self.solution.P[..., None]
 
     @property
     def rho(self):
-        return self.solution.density_mass
+        return self.solution.density_mass[..., None]
 
     @property
     def e(self):
-        return self.solution.int_energy_mass
+        return self.solution.int_energy_mass[..., None]
 
     @property
     def h(self):
-        return self.solution.enthalpy_mass
+        return self.solution.enthalpy_mass[..., None]
+
+    @property
+    def s(self):
+        return self.solution.entropy_mass[..., None]
+
+    @property
+    def c(self):
+        return np.sqrt(self.gamma*self.p/self.rho)
 
     @property
     def Y(self):
@@ -285,33 +292,46 @@ class CanteraThermo(ThermoBase):
 
     @property
     def cv(self):
-        return self.solution.cv
+        return self.solution.cv[..., None]
 
     @property
     def cp(self):
-        return self.solution.cp
+        return self.solution.cp[..., None]
 
     @property
     def gamma(self):
         return self.cp / self.cv
 
     @property
+    def dpdrho(self):
+        return self.p / self.rho
+
+    @property
     def net_production_rates(self):
         return self.solution.net_production_rates
 
+    def set_state_from_rhoi_p(self, rhoi, p):
+        # Create a SolutionArray to handle the thermodynamic computations
+        self.solution = ct.SolutionArray(self.gas, shape=p.shape[:2])
+
+        rho = rhoi.sum(axis=2, keepdims=True)
+        Y = rhoi / rho
+
+        self.solution.DPY = rho[..., 0], p[..., 0], Y
+
     def set_state_from_Y_T_p(self, Y, T, p):
         # Create a SolutionArray to handle the thermodynamic computations
-        self.solution = ct.SolutionArray(self.gas, shape=T.shape)
+        self.solution = ct.SolutionArray(self.gas, shape=T.shape[:2])
 
-        self.solution.TPY = T, p, Y
+        self.solution.TPY = T[..., 0], p[..., 0], Y
 
     def set_state_from_rhoi_e(self, rhoi, e):
         # Create a SolutionArray to handle the thermodynamic computations
-        self.solution = ct.SolutionArray(self.gas, shape=e.shape)
+        self.solution = ct.SolutionArray(self.gas, shape=e.shape[:2])
 
         # Get species mass fractions and density
-        rho = rhoi.sum(axis=2)
+        rho = rhoi.sum(axis=2, keepdims=True)
         v = 1.0 / rho
         Y = rhoi * v
 
-        self.solution.UVY = e, v, Y
+        self.solution.UVY = e[..., 0], v[..., 0], Y
