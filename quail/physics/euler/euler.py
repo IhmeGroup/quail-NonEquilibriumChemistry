@@ -216,6 +216,14 @@ class Euler(base.PhysicsBase):
     def velocity(self, velocity):
         self._velocity = velocity
 
+    @property
+    def kinetic_energy(self):
+        return self._kinetic_energy
+
+    @kinetic_energy.setter
+    def kinetic_energy(self, kinetic_energy):
+        self._kinetic_energy = kinetic_energy
+
     def set_thermo_state(self, Uq, flag_non_physical=None):
         ''' Extract state variables '''
         srho, srhou, srhoE = self.get_state_slices()
@@ -231,7 +239,8 @@ class Euler(base.PhysicsBase):
 
         '''Compute density and energy'''
         rho = rhoi.sum(axis=2, keepdims=True)
-        e = (rhoE - 0.5*(rhou * rhou).sum(axis=2, keepdims=True) / rho) / rho
+        self.kinetic_energy = 0.5*(rhou * rhou).sum(axis=2, keepdims=True) / rho
+        e = (rhoE - self.kinetic_energy) / rho
 
         '''Set the thermodynamic state'''
         self.thermo.set_state_from_rhoi_e(rhoi, e)
@@ -253,16 +262,16 @@ class Euler(base.PhysicsBase):
         elif vname is self.AdditionalVariables["Entropy"].name:
             varq = self.thermo.s
         elif vname is self.AdditionalVariables["InternalEnergy"].name:
-            varq = self.thermo.e
+            varq = self.thermo.rho * self.thermo.e
         elif vname is self.AdditionalVariables["TotalEnthalpy"].name:
-            varq = self.thermo.h
+            varq = self.thermo.h + self.kinetic_energy / self.thermo.rho
         elif vname is self.AdditionalVariables["SoundSpeed"].name:
             varq = self.thermo.c
         elif vname is self.AdditionalVariables["MaxWaveSpeed"].name:
             # |u| + c
-            varq = np.linalg.norm(self.velocity, axis=2, keepdims=True)/self.thermo.rho + self.thermo.c
+            varq = np.linalg.norm(self.velocity, axis=2, keepdims=True) + self.thermo.c
         elif vname is self.AdditionalVariables["Velocity"].name:
-            varq = np.linalg.norm(self.velocity, axis=2, keepdims=True)/self.thermo.rho
+            varq = np.linalg.norm(self.velocity, axis=2, keepdims=True)
         elif vname is self.AdditionalVariables["XVelocity"].name:
             varq = self.velocity[:, :, [0]]
         elif vname is self.AdditionalVariables["YVelocity"].name:
@@ -324,8 +333,9 @@ class Euler(base.PhysicsBase):
         # Get indices of state variables
         srho, srhou, srhoE = self.get_state_slices()
 
+        rho = self.thermo.rho
         u = self.velocity
-        rhou = Uq[:, :, None, srhou] # [n, nq, ndims]
+        rhou = Uq[:, :, None, srhou] # [n, nq, 1, ndims]
 
         # Calculate pressure
         p = self.thermo.p
@@ -337,16 +347,18 @@ class Euler(base.PhysicsBase):
         for i in range(self.NDIMS):
             momentum_flux[..., (i,), (i,)] += p
 
+        # Get mass fraction(s)
+        Y = self.thermo.Y[..., None]
         # Get enthalpy
-        h = self.thermo.h[..., None]
+        h = (self.thermo.h + self.kinetic_energy / rho)[..., None]
 
         # Assemble flux matrix
         F = np.empty(Uq.shape + (self.NDIMS,)) # [n, nq, ns, ndims]
-        F[:, :, srho, :] = rhou            # Flux of mass in all directions
+        F[:, :, srho, :] = Y * rhou        # Flux of mass in all directions
         F[:, :, srhou, :] = momentum_flux  # Flux of momentum
         F[:, :, srhoE, :] = h * rhou       # Flux of energy
 
-        return F, (u**2, self.thermo.rho, p)
+        return F, (u**2, rho, p)
 
     def get_conv_eigenvectors(self, U_bar):
         '''
