@@ -31,7 +31,7 @@ class TransportBase(ABC):
     '''
     This is a base class for transport property calculations.
     '''
-    def __init__(self):
+    def __init__(self, **kwargs):
         pass
 
     def get_viscosity(self):
@@ -59,12 +59,9 @@ class ConstantTransport(TransportBase):
         mu: viscosity [ne, nq]
         kappa: thermal conductivity [ne, nq]
     '''
-    def __init__(self, GasConstant=287.0, SpecificHeatRatio=1.4,
-                 PrandtlNumber=0.7, Viscosity=1.0):
-        super().__init__()
+    def __init__(self, PrandtlNumber=0.7, Viscosity=1.0, **kwargs):
+        super().__init__(**kwargs)
         self.Pr = PrandtlNumber
-        self.gamma = SpecificHeatRatio
-        self.R = GasConstant
         self.mu0 = Viscosity
 
     def get_viscosity(self, thermo):
@@ -95,8 +92,8 @@ class SutherlandTransport(TransportBase):
         mu: viscosity [ne, nq]
         kappa: thermal conductivity [ne, nq]
     '''
-    def __init__(self, PrandtlNumber=0.7, Viscosity=1.0, s=1.0, T0=1.0, beta=1.):
-        super().__init__()
+    def __init__(self, PrandtlNumber=0.7, Viscosity=1.0, s=1.0, T0=1.0, beta=1., **kwargs):
+        super().__init__(**kwargs)
         self.Pr = PrandtlNumber
         self.mu0 = Viscosity
         self.s = s
@@ -122,8 +119,8 @@ class CanteraTransport(TransportBase):
     '''
     Interface to Cantera to compute transport properties.
     '''
-    def __init__(self, Mechanism='air.yaml'):
-        super().__init__()
+    def __init__(self, Mechanism='air.yaml', **kwargs):
+        super().__init__(**kwargs)
         self.gas = ct.Solution(Mechanism)
         self._cached_e = None
         self._cached_solution = None

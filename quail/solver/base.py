@@ -616,6 +616,8 @@ class SolverBase(ABC):
 				print("\nMin|Max at volume quadrature points:")
 				s = 0
 				for state_var in physics.StateVariables:
+					if isinstance(state_var.value, list):
+						continue
 					string = "    " + state_var.name + ": " + "%g | %g"
 					print(string % (self.min_state[s], self.max_state[s]))
 					s += 1

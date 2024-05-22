@@ -78,7 +78,7 @@ class ManufacturedSolution(FcnBase):
 		pass
 	def get_state(self, physics, x, t):
 		# Unpack
-		gamma = physics.gamma
+		gamma = physics.thermo.gamma
 
 		irho, irhou, irhov, irhoE = physics.get_state_indices()
 
@@ -133,13 +133,14 @@ class TaylorGreenVortexNS(FcnBase):
 
 		Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
-		gamma = physics.gamma
+		gamma = physics.thermo.gamma
 
-		irho, irhou, irhov, irhoE = physics.get_state_indices()
+		srho, srhou, srhoE = physics.get_state_slices()
 
 		Ma = 0.01
 		P0 = 1. / (gamma*Ma*Ma)
-		mu, _ = physics.get_transport(physics, Uq)
+		print(physics.thermo)
+		mu = physics.transport.get_viscosity(physics.thermo)
 
 		nu = mu/1. # Rho = 1
 
@@ -148,14 +149,12 @@ class TaylorGreenVortexNS(FcnBase):
 			np.cos(4.*np.pi * x2)) * F * F
 
 		''' Fill state '''
-		Uq[:, :, irho] = 1.0
-		Uq[:, :, irhou] = np.sin(2.*np.pi * x1) * \
-			np.cos(2.*np.pi * x2) * F
-		Uq[:, :, irhov] = -np.cos(2.*np.pi * x1) * \
-			np.sin(2.*np.pi * x2) * F
-		Uq[:, :, irhoE] = P / (gamma-1.) + 0.5 * \
-			(Uq[:, :, irhou]*Uq[:, :, irhou] +
-			Uq[:, :, irhov]*Uq[:, :, irhov]) / Uq[:, :, irho]
+		Uq[:, :, srho] = 1.0
+		rhou = np.sin(2.*np.pi * x1) * np.cos(2.*np.pi * x2) * F
+		rhov = -np.cos(2.*np.pi * x1) * np.sin(2.*np.pi * x2) * F
+		Uq[:, :, srhou] = np.stack([rhou, rhov], axis=2)
+		Uq[:, :, srhoE] = (P / (gamma-1.))[..., None] + 0.5 * (
+			rhou*rhou + rhov*rhov)[..., None] / Uq[:, :, srho]
 
 		return Uq
 
@@ -191,7 +190,7 @@ class ManufacturedSource(SourceBase):
 	'''
 	def get_source(self, physics, Uq, x, t):
 		# Unpack
-		gamma = physics.gamma
+		gamma = physics.thermo.gamma
 		R = physics.R
 
 		irho, irhou, irhov, irhoE = physics.get_state_indices()
@@ -471,42 +470,44 @@ class IsothermalWall(BCWeakPrescribed):
 	This class corresponds to a viscous Isothermal wall. See documentation for more
 	details.
 	'''
-	def __init__(self, twall):
+	def __init__(self, Twall):
 		'''
 		This method initializes the attributes.
 
 		Inputs:
 		-------
-			twall: wall temperature
+			Twall: wall temperature
 
 		Outputs:
 		--------
 		    self: attributes initialized
 		'''
-		self.twall = twall
+		self.Twall = Twall
 
 	def get_boundary_state(self, physics, UqI, normals, x, t):
 		UqB = UqI.copy()
+		srho, srhou, srhoE = physics.get_state_slices()
 
-		# Interior pressure
-		pI = physics.compute_variable("Pressure", UqI)
+		# Interior pressure and mass fractions
+		pI = physics.compute_variables("Pressure", UqI)
+		YI = physics.thermo.Y
 		if np.any(pI < 0.):
 			raise errors.NotPhysicalError
+		
+		# Set the boundary thermodynamic state with the specified wall temperature
+		# wall pressure pB = pI
+		physics.thermo.set_state_from_T_P_Y(self.Twall, pI, YI)
 
 		# Boundary density
-		srho = physics.get_state_slice("Density")
-		# wall pressure pB = pI
-		UqB[:, :, srho] = pI / (physics.R * self.twall)
+		rhoB = physics.thermo.rho
+		UqB[:, :, srho] = rhoB * YI
 
 		# Boundary velocity
-		smom = physics.get_momentum_slice()
-		UqB[:, :, smom] = 0.
+		UqB[:, :, srhou] = 0.
 
 		# Boundary energy
-		srhoE = physics.get_state_slice("Energy")
-		cv = physics.R / (physics.gamma - 1)
-		rhoB = UqB[:, :, srho]
-		UqB[:, :, srhoE] = rhoB * cv * self.twall
+		rhoEB = rhoB*physics.thermo.e + physics.kinetic_energy
+		UqB[:, :, srhoE] = rhoEB
 
 		return UqB
 

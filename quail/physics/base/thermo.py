@@ -243,20 +243,32 @@ class CanteraThermo(ThermoBase):
     '''
     NUM_ENERGY = 1
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Workaround because Cantera objects cannot be pickled
+        state.pop("gas", None)
+        state.pop("solution", None)
+        return state
+
     @property
     def NUM_SPECIES(self):
         return self.gas.n_species
 
     def __init__(self, Mechanism='air.yaml', **kwargs):
         super().__init__()
-        self.R = ct.gas_constant
+        self.Ru = ct.gas_constant
 
         # Initialize the gas phase
         self.gas = ct.Solution(Mechanism)
+        self.gas.basis = 'mass'
         self.species_names = self.gas.species_names
         self.default_Y = self.gas.Y
 
         self.solution = None
+
+    @property
+    def R(self):
+        return self.Ru / self.solution.mean_molecular_weight
 
     @property
     def T(self):

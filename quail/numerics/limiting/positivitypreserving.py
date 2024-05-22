@@ -88,7 +88,7 @@ class PositivityPreserving(base.LimiterBase):
 
 	def __init__(self, physics_type):
 		super().__init__(physics_type)
-		self.var_name1 = "Density"
+		self.var_name1 = "Densities"
 		self.var_name2 = "Pressure"
 		self.elem_vols = np.zeros(0)
 		self.basis_val_elem_faces = np.zeros(0)
@@ -159,7 +159,7 @@ class PositivityPreserving(base.LimiterBase):
 
 		irho = physics.get_state_index(self.var_name1)
 		# Get IDs of elements that need limiting
-		elem_IDs = np.where(theta1 < 1.)[0]
+		elem_IDs = np.unique(np.where(theta1 < 1.)[0])
 		# Modify density coefficients
 		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
 			Uc[elem_IDs, :, irho] = theta1[elem_IDs]*Uc[elem_IDs, :, irho] \
@@ -219,7 +219,8 @@ class PositivityPreservingChem(PositivityPreserving):
     This class contains information about the positivity preserving limiter
     '''
 
-	COMPATIBLE_PHYSICS_TYPES = general.PhysicsType.Chemistry
+	COMPATIBLE_PHYSICS_TYPES = [general.PhysicsType.Euler,
+							    general.PhysicsType.Chemistry]
 
 	def __init__(self, physics_type):
 		'''
@@ -228,8 +229,7 @@ class PositivityPreservingChem(PositivityPreserving):
 		Initializes PPLimiter object
 		'''
 		super().__init__(physics_type)
-		self.var_name3 = "Mixture"
-
+		self.var_name3 = "Density"
 
 	def limit_solution(self, solver, Uc):
 		# Unpack
@@ -251,39 +251,37 @@ class PositivityPreservingChem(PositivityPreserving):
 				self.elem_vols)
 		ne = self.elem_vols.shape[0]
 		# Density and pressure from averaged state
-		rho_bar = physics.compute_variable(self.var_name1, U_bar)
+		srhoi = physics.get_state_slice(self.var_name1)
+		rhoi_bar = physics.compute_variable(self.var_name1, U_bar)
+		rho_bar = rhoi_bar.sum(axis=2, keepdims=True)
 		p_bar = physics.compute_variable(self.var_name2, U_bar)
-		rhoY_bar = physics.compute_variable(self.var_name3, U_bar)
 
-		if np.any(rho_bar < 0.) or np.any(p_bar < 0.) or np.any(
-				rhoY_bar < 0.):
+		if np.any(p_bar < 0.) or np.any(rhoi_bar < 0.):
 			raise errors.NotPhysicalError
 
 		# Ignore divide-by-zero
 		np.seterr(divide='ignore')
 
 		''' Limit density '''
-		# Compute density
-		rho_elem_faces = physics.compute_variable(self.var_name1,
-				U_elem_faces)
+		# Compute density at quadrature points
+		rho_elem_faces = physics.compute_variable(self.var_name3, U_elem_faces)
 		# Check if limiting is needed
-		theta = np.abs((rho_bar - POS_TOL)/(rho_bar - rho_elem_faces))
+		theta1 = np.abs((rho_bar - POS_TOL)/(rho_bar - rho_elem_faces))
 		# Truncate theta1; otherwise, can get noticeably different
 		# results across machines, possibly due to poor conditioning in its
 		# calculation
-		theta1 = trunc(np.minimum(1., np.min(theta, axis=1)))
-
-		irho = physics.get_state_index(self.var_name1)
+		theta1 = trunc(np.minimum(1., np.min(theta1, axis=1)))
 		# Get IDs of elements that need limiting
-		elem_IDs = np.where(theta1 < 1.)[0]
-		# Modify density coefficients
+		elem_IDs = np.unique(np.where(theta1 < 1.)[0])
+		# Modify coefficients
 		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs, :, irho] = theta1[elem_IDs]*Uc[elem_IDs, :, irho] \
-					+ (1. - theta1[elem_IDs])*rho_bar[elem_IDs, 0]
+			Uc[elem_IDs, :, srhoi] = np.einsum('im, ijk -> ijk', theta1[elem_IDs],
+					Uc[elem_IDs, :, srhoi]) + np.einsum('im, ijk -> ijk', 1. - theta1[
+					elem_IDs], rhoi_bar[elem_IDs])
 		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs, :, irho] *= theta1[elem_IDs]
-			Uc[elem_IDs, 0, irho] += (1. - theta1[elem_IDs, 0])*rho_bar[
-					elem_IDs, 0, 0]
+			Uc[elem_IDs] *= np.expand_dims(theta1[elem_IDs], axis=2)
+			Uc[elem_IDs, 0] += np.einsum('im, ijk -> ik', 1. - theta1[
+					elem_IDs], rhoi_bar[elem_IDs])
 		else:
 			raise NotImplementedError
 
@@ -293,26 +291,24 @@ class PositivityPreservingChem(PositivityPreserving):
 					self.basis_val_elem_faces,
 					skip_interp=basis.skip_interp)
 
-
-		''' Limit mass fraction '''
-		rhoY_elem_faces = physics.compute_variable(self.var_name3, U_elem_faces)
-		theta = np.abs(rhoY_bar/(rhoY_bar-rhoY_elem_faces+POS_TOL))
+		''' Limit partial densities '''
+		# Compute partial densities
+		rhoi_elem_faces = physics.compute_variable(self.var_name1, U_elem_faces)
+		theta = np.abs(rhoi_bar/(rhoi_bar-rhoi_elem_faces+POS_TOL))
 		# Truncate theta2; otherwise, can get noticeably different
 		# results across machines, possibly due to poor conditioning in its
 		# calculation
-		theta2 = trunc(np.minimum(1., np.amin(theta, axis=1)))
+		theta2 = trunc(np.minimum(1., np.amin(theta, axis=1, keepdims=True)))
 
-		irhoY = physics.get_state_index(self.var_name3)
 		# Get IDs of elements that need limiting
-		elem_IDs = np.where(theta2 < 1.)[0]
+		elem_IDs = np.unique(np.where(theta2 < 1.)[0])
 		# Modify density coefficients
 		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs, :, irhoY] = theta2[elem_IDs]*Uc[elem_IDs, :,
-					irhoY] + (1. - theta2[elem_IDs])*rho_bar[elem_IDs, 0]
+			Uc[elem_IDs, :, srhoi] = theta2[elem_IDs]*Uc[elem_IDs, :,
+					srhoi] + (1. - theta2[elem_IDs])*rhoi_bar[elem_IDs]
 		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs, :, irhoY] *= theta2[elem_IDs]
-			Uc[elem_IDs, 0, irhoY] += (1. - theta2[elem_IDs, 0])*rho_bar[
-					elem_IDs, 0, 0]
+			Uc[elem_IDs, :, srhoi] *= theta2[elem_IDs]
+			Uc[elem_IDs, 0, srhoi] += (1. - theta2[elem_IDs])*rhoi_bar[elem_IDs]
 		else:
 			raise NotImplementedError
 
@@ -324,7 +320,7 @@ class PositivityPreservingChem(PositivityPreserving):
 		''' Limit pressure '''
 		# Compute pressure at quadrature points
 		p_elem_faces = physics.compute_variable(self.var_name2, U_elem_faces)
-		theta[:] = 1.
+		theta = np.ones(p_elem_faces.shape)
 		# Indices where pressure is negative
 		negative_p_indices = np.where(p_elem_faces < 0.)
 		elem_IDs = negative_p_indices[0]
@@ -338,15 +334,15 @@ class PositivityPreservingChem(PositivityPreserving):
 		# calculation
 		theta3 = trunc(np.min(theta, axis=1))
 		# Get IDs of elements that need limiting
-		elem_IDs = np.where(theta3 < 1.)[0]
+		elem_IDs = np.unique(np.where(theta3 < 1.)[0])
 		# Modify coefficients
 		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
 			Uc[elem_IDs] = np.einsum('im, ijk -> ijk', theta3[elem_IDs],
-					Uc[elem_IDs]) + np.einsum('im, ijk -> ijk', 1 - theta3[
+					Uc[elem_IDs]) + np.einsum('im, ijk -> ijk', 1. - theta3[
 					elem_IDs], U_bar[elem_IDs])
 		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
 			Uc[elem_IDs] *= np.expand_dims(theta3[elem_IDs], axis=2)
-			Uc[elem_IDs, 0] += np.einsum('im, ijk -> ik', 1 - theta3[
+			Uc[elem_IDs, 0] += np.einsum('im, ijk -> ik', 1. - theta3[
 					elem_IDs], U_bar[elem_IDs])
 		else:
 			raise NotImplementedError
