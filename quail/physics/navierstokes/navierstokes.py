@@ -66,11 +66,6 @@ class NavierStokes(euler.Euler):
     '''
     PHYSICS_TYPE = general.PhysicsType.NavierStokes
 
-    def __init__(self):
-        super().__init__()
-        self.R = 0.
-        self.gamma = 0.
-
     def set_maps(self):
         super().set_maps()
 
@@ -86,72 +81,35 @@ class NavierStokes(euler.Euler):
                     navierstokes_fcns.IsothermalWall,
         })
 
-    def set_physical_params(self, GasConstant=287., SpecificHeatRatio=1.4):
-        '''
-        This method sets physical parameters.
+        if self.NDIMS == 2:
+            # Define functions for 2D problem types
+            d = {
+                navierstokes_fcn_type.TaylorGreenVortexNS :
+                        navierstokes_fcns.TaylorGreenVortexNS,
+                navierstokes_fcn_type.ManufacturedSolution :
+                        navierstokes_fcns.ManufacturedSolution,
+            }
 
-        Inputs:
-        -------
-            GasConstant: mass-specific gas constant
-            SpecificHeatRatio: ratio of specific heats
-            PrandtlNumber: ratio of kinematic viscosity to thermal diffusivity
-            Viscosity: fluid viscosity
-            s: Sutherland model constant
-            T0: Sutherland model constant
-            beta: Sutherland model constant
+            self.IC_fcn_map.update(d)
+            self.exact_fcn_map.update(d)
+            self.BC_fcn_map.update(d)
 
-        Outputs:
-        --------
-            self: physical parameters set
-        '''
-        self.R = GasConstant
-        self.gamma = SpecificHeatRatio
-
-    def set_state_from_conservatives(self, Uq, flag_non_physical=None):
-        irho, irhou, irhoE = self.get_state_indices()
-
-        # Unpack state coefficients
-        rhoi = Uq[:, :, irho]  # [n, nq, nsp]
-        rhou = Uq[:, :, irhou] # [n, nq, ndims]
-        rhoE = Uq[:, :, irhoE] # [n, nq, ne]
-
-        # Get thermodynamic variables
-        rho = rhoi.sum(axis=2)
-        e = (rhoE - 0.5*(rhou**2).sum(axis=2) / rho) / rho
-
-        self.thermo.set_state_from_rhoe(rhoi, e)
-
-
-class NavierStokes1D(NavierStokes):
-    '''
-    This class corresponds to 1D Navier Stokes equations.
-    It inherits attributes and methods from the NavierStokes class.
-    See NavierStokes for detailed comments of attributes and methods.
-
-    Additional methods and attributes are commented below.
-    '''
-    NUM_STATE_VARS = 3
-    NDIMS = 1
-
-    def set_maps(self):
-        super().set_maps()
+            self.source_map.update({
+                navierstokes_source_type.ManufacturedSource :
+                        navierstokes_fcns.ManufacturedSource,
+            })
 
     def get_diff_flux_interior(self, Uq, gUq):
-        # Get indices/slices of state variables
-        irho, irhou, irhoE = self.get_state_indices()
-        smom = self.get_momentum_slice()
+        # Set the thermodynamic state
+        self.set_thermo_state(Uq)
 
-        # Unpack state coefficients
-        rho  = Uq[:, :, irho]  # [n, nq]
-        rhou = Uq[:, :, irhou] # [n, nq]
-        rhoE = Uq[:, :, irhoE] # [n, nq]
-        mom  = Uq[:, :, smom]  # [n, nq, ndims]
+        # Get indices/slices of state variables
+        srho, srhou, srhoE = self.get_state_slices()
 
         # Calculate transport
-        mu, kappa = self.get_transport(self, Uq,
-            flag_non_physical=False)
-        mu = mu.reshape(rho.shape)
-        kappa = kappa.reshape(rho.shape)
+        rho = self.thermo.rho
+        mu = self.transport.get_viscosity(self.thermo)
+        kappa = self.transport.get_thermal_conductivity(self.thermo)
         nu = mu / rho
 
         gamma = self.thermo.gamma
@@ -161,146 +119,39 @@ class NavierStokes1D(NavierStokes):
         C1 = 2. / 3.
         C2 = (gamma - 1.) / (R * rho)
 
-        # Separate x gradient
-        gUx = gUq[:, :, :, 0] # [ne, nq, ns]
-
-        # Get velocity
-        u = rhou / rho
-
-        # Get E
-        E = rhoE / rho
-
-        # Get squared velocity
-        u2 = u**2
-
-        # Store dTdU
-        dTdU = np.zeros_like(gUx)
-        dTdU[:, :, 0] = C2 * (-E + u2)
-        dTdU[:, :, 1] = C2 * -u
-        dTdU[:, :, 2] = C2
-
-        # Get the stress tensor (use product rules to write in
-        # terms of the conservative gradients)
-        rhodiv = (gUx[:, :, 1] - u * gUx[:, :, 0])
-        tauxx = nu * (2. * (gUx[:, :, 1] - u * gUx[:, :, 0]) - \
-            C1 * rhodiv)
-
-        # Assemble flux matrix
-        F = np.empty(Uq.shape + (self.NDIMS,)) # [n, nq, ns, ndims]
-        F[:,:,irho,  :] = 0.		   # flux of rho
-        F[:,:,irhou, 0] = tauxx 	# flux of momentum
-        F[:,:,irhoE, 0] = u * tauxx + \
-            kappa * np.einsum('ijk, ijk -> ij', dTdU, gUx)
-
-        return F # [n, nq, ns, ndims]
-
-class NavierStokes2D(NavierStokes):
-    '''
-    This class corresponds to 2D Navier-Stokes equations. It
-    inherits attributes and methods from the Navier-Stokes class as
-    well as the Euler2D class.
-    See Navier-Stokes and Euler2D for detailed comments of
-    attributes and methods.
-
-    Additional methods and attributes are commented below.
-    '''
-    NDIMS = 2
-
-    def __init__(self):
-        super().__init__()
-
-    def set_maps(self):
-        super().set_maps()
-
-        d = {
-            navierstokes_fcn_type.TaylorGreenVortexNS :
-                    navierstokes_fcns.TaylorGreenVortexNS,
-            navierstokes_fcn_type.ManufacturedSolution :
-                    navierstokes_fcns.ManufacturedSolution,
-        }
-
-        self.IC_fcn_map.update(d)
-        self.exact_fcn_map.update(d)
-        self.BC_fcn_map.update(d)
-
-        self.source_map.update({
-            navierstokes_source_type.ManufacturedSource :
-                    navierstokes_fcns.ManufacturedSource,
-        })
-
-    def get_diff_flux_interior(self, Uq, gUq):
-        # Get indices/slices of state variables
-        irho, irhou, irhov, irhoE = self.get_state_indices()
-        smom = self.get_momentum_slice()
-
-        # Unpack state coefficients
-        rho  = Uq[:, :, irho]  # [n, nq]
-        rhou = Uq[:, :, irhou] # [n, nq]
-        rhov = Uq[:, :, irhov] # [n, nq]
-        rhoE = Uq[:, :, irhoE] # [n, nq]
-        mom  = Uq[:, :, smom]  # [n, nq, ndims]
-
-        # Calculate transport
-        mu, kappa = self.get_transport(self, Uq,
-            flag_non_physical=False)
-        mu = mu.reshape(rho.shape)
-        kappa = kappa.reshape(rho.shape)
-        nu = mu / rho
-
-        gamma = self.gamma
-        R = self.R
-
-        # Set constants for stress tensor
-        C1 = 2. / 3.
-        C2 = (gamma - 1.) / (R * rho)
-
-        # Separate x and y gradients
-        gUx = gUq[:, :, :, 0] # [ne, nq, ns]
-        gUy = gUq[:, :, :, 1] # [ne, nq, ns]
-
         # Get velocity in each dimension
-        u = rhou / rho
-        v = rhov / rho
+        u = self.velocity
 
         # Get E
-        E = rhoE / rho
-
-        # Get squared velocities
-        u2 = u**2
-        v2 = v**2
+        e = self.thermo.e
 
         # Store dTdU
-        dTdU = np.zeros_like(gUx)
-        dTdU[:, :, 0] = C2 * (-E + u2 + v2)
-        dTdU[:, :, 1] = C2 * -u
-        dTdU[:, :, 2] = C2 * -v
-        dTdU[:, :, 3] = C2
+        dTdU = np.zeros_like(Uq)
+        dTdU[:, :, srho] = C2 * -e
+        dTdU[:, :, srhou] = C2 * -u
+        dTdU[:, :, srhoE] = C2
+
+        # Get density and momentum gradients
+        grho = gUq[:, :, srho, :].sum(axis=2, keepdims=True)
+        grhou = gUq[:, :, srhou, :]
 
         # Get the stress tensor (use product rules to write in
         # terms of the conservative gradients)
-        rhodiv = ((gUx[:, :, 1] - u * gUx[:, :, 0]) + \
-            (gUy[:, :, 2] - v * gUy[:, :, 0]))
-        tauxx = nu * (2. * (gUx[:, :, 1] - u * gUx[:, :, 0]) - \
-            C1 * rhodiv)
-        tauxy = nu * ((gUy[:, :, 1] - u * gUy[:, :, 0]) + \
-            (gUx[:, :, 2] - v * gUx[:, :, 0]))
-        tauyy = nu * (2. * (gUy[:, :, 2] - v * gUy[:, :, 0]) - \
-            C1 * rhodiv)
+        # rho * dui/dxj = drhoui/dxj - ui * drho/dxj
+        idx_diag = tuple(i for i in range(self.NDIMS))
+        idx_diag = (idx_diag, idx_diag)
+        rhodiv = grhou[:, :, *idx_diag].sum(axis=2, keepdims=True)
+
+        rho_gu = grhou - u[..., None]*grho
+        tauij = rho_gu + np.swapaxes(rho_gu, 2, 3)
+        tauij[:, :, *idx_diag] -= C1*rhodiv
+        tauij *= nu[...,None]
 
         # Assemble flux matrix
         F = np.empty(Uq.shape + (self.NDIMS,)) # [n, nq, ns, ndims]
-        F[:,:,irho,  :] = 0.		   # x,y-flux of rho (zero both dir)
-
-        # x-direction
-        F[:,:,irhou, 0] = tauxx 	# x-flux of x-momentum
-        F[:,:,irhov, 0] = tauxy     # x-flux of y-momentum
-        F[:,:,irhoE, 0] = u * tauxx + v * tauxy + \
-            kappa * np.einsum('ijk, ijk -> ij', dTdU, gUx)
-
-        # y-direction
-        F[:,:,irhou, 1] = tauxy        # y-flux of x-momentum
-        F[:,:,irhov, 1] = tauyy 	   # y-flux of y-momentum
-        F[:,:,irhoE, 1] = u * tauxy + v * tauyy + \
-            kappa * np.einsum('ijk, ijk -> ij', dTdU, gUy)
+        F[:,:,srho, :] = 0.		# x,y-flux of rho (zero both dir)
+        F[:,:,srhou,:] = tauij  # Stress tensor
+        F[:,:,srhoE,:] = (u[..., None] * tauij).sum(axis=2, keepdims=True) + \
+            kappa * np.einsum('ijk, ijkl -> ijl', dTdU, gUq)[:,:,None,:]
 
         return F # [n, nq, ns, ndims]

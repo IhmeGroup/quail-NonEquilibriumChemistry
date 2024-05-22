@@ -58,6 +58,13 @@ class Euler(base.PhysicsBase):
     '''
     PHYSICS_TYPE = general.PhysicsType.Euler
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Workaround because cached properties cannot be pickled
+        state.pop("StateVariables", None)
+        state.pop("AdditionalVariables", None)
+        return state
+
     @property
     def NUM_STATE_VARS(self):
         return self.thermo.NUM_SPECIES + self.NDIMS + self.thermo.NUM_ENERGY
@@ -93,7 +100,7 @@ class Euler(base.PhysicsBase):
 
             self.conv_num_flux_map.update({
                 base_conv_num_flux_type.LaxFriedrichs:
-                        euler_fcns.LaxFriedrichs1D,
+                        euler_fcns.LaxFriedrichs,
                 euler_conv_num_flux_type.Roe: euler_fcns.Roe1D,
             })
         elif self.NDIMS == 2:
@@ -113,7 +120,7 @@ class Euler(base.PhysicsBase):
 
             self.conv_num_flux_map.update({
                 base_conv_num_flux_type.LaxFriedrichs:
-                    euler_fcns.LaxFriedrichs2D,
+                    euler_fcns.LaxFriedrichs,
                 euler_conv_num_flux_type.Roe: euler_fcns.Roe2D,
             })
 
@@ -127,7 +134,7 @@ class Euler(base.PhysicsBase):
 
         # Handle multi-species
         if self.thermo.NUM_SPECIES == 1:
-            state_variable_list['Density'] = "\\rho"
+            state_variable_list["Densities"] = "\\rho"
         else:
             densities = []
             for sp in self.thermo.species_names:
@@ -135,7 +142,7 @@ class Euler(base.PhysicsBase):
                 state_variable_list['rhoY%s' % sp] = val
                 densities += [val]
 
-            state_variable_list['Density'] = densities
+            state_variable_list["Densities"] = densities
 
         # Handle multiple dimensions
         if self.NDIMS > 0:
@@ -147,11 +154,11 @@ class Euler(base.PhysicsBase):
                 state_variable_list["%sMomentum" % dim] = val
                 momenta += [val]
 
-            state_variable_list['Momentum'] = momenta
+            state_variable_list["Momentum"] = momenta
 
         # Handle multiple energies
         if self.thermo.NUM_ENERGY == 1:
-            state_variable_list["Energy"] = "\\rho E"
+            state_variable_list["Energies"] = "\\rho E"
         else:
             energies = []
             for energy in self.thermo.energy_list:
@@ -159,27 +166,28 @@ class Euler(base.PhysicsBase):
                 state_variable_list['rho%s' % energy] = energy
                 energies += [val]
 
-            state_variable_list['Energy'] = energies
+            state_variable_list["Energies"] = energies
 
-        return Enum('StateVariables', state_variable_list)
+        return Enum("StateVariables", state_variable_list)
 
     def get_state_indices(self):
-        irho = self.get_state_index("Density")
+        irho = self.get_state_index("Densities")
         irhou = self.get_state_index("Momentum")
-        irhoE = self.get_state_index("Energy")
+        irhoE = self.get_state_index("Energies")
 
         return irho, irhou, irhoE
 
     def get_state_slices(self):
-        srho = self.get_state_slice("Density")
+        srho = self.get_state_slice("Densities")
         srhou = self.get_state_slice("Momentum")
-        srhoE = self.get_state_slice("Energy")
+        srhoE = self.get_state_slice("Energies")
 
         return srho, srhou, srhoE
 
     @cached_property
     def AdditionalVariables(self):
         additional_variable_list = {
+            "Density": "\\rho",
             "Pressure": "p",
             "Temperature": "T",
             "Entropy": "s",
@@ -191,11 +199,12 @@ class Euler(base.PhysicsBase):
 
         # Handle multi-species
         if self.thermo.NUM_SPECIES > 1:
-            additional_variable_list['Density'] = "\\rho"
-
+            Y_list = []
             for sp in self.thermo.species_names:
                 val = "Y_{%s}" % sp
                 additional_variable_list["MassFraction%s" % sp] = val
+                Y_list += [val]
+            additional_variable_list["MassFractions"] = Y_list
 
         # Handle multiple dimensions
         if self.NDIMS > 0:
@@ -238,7 +247,7 @@ class Euler(base.PhysicsBase):
                 raise errors.NotPhysicalError
 
         '''Compute density and energy'''
-        rho = rhoi.sum(axis=2, keepdims=True)
+        rho = self.compute_additional_variable("Density", Uq, flag_non_physical)
         self.kinetic_energy = 0.5*(rhou * rhou).sum(axis=2, keepdims=True) / rho
         e = (rhoE - self.kinetic_energy) / rho
 
@@ -249,34 +258,39 @@ class Euler(base.PhysicsBase):
         self.velocity = rhou / rho
 
     def compute_additional_variable(self, var_name, Uq, flag_non_physical):
-        '''Set the thermodynamic state'''
-        self.set_thermo_state(Uq, flag_non_physical)
-
         ''' Compute '''
         vname = self.AdditionalVariables[var_name].name
 
-        if vname is self.AdditionalVariables["Pressure"].name:
+        # Special treatment for density as it can be directly computed:
+        if vname == self.AdditionalVariables["Density"].name:
+            srho = self.get_state_slice("Densities")
+            return Uq[..., srho].sum(axis=2, keepdims=True)
+
+        # For other quantities, first set the thermodynamic state:
+        self.set_thermo_state(Uq, flag_non_physical)
+
+        if vname == self.AdditionalVariables["Pressure"].name:
             varq = self.thermo.p
-        elif vname is self.AdditionalVariables["Temperature"].name:
+        elif vname == self.AdditionalVariables["Temperature"].name:
             varq = self.thermo.T
-        elif vname is self.AdditionalVariables["Entropy"].name:
+        elif vname == self.AdditionalVariables["Entropy"].name:
             varq = self.thermo.s
-        elif vname is self.AdditionalVariables["InternalEnergy"].name:
+        elif vname == self.AdditionalVariables["InternalEnergy"].name:
             varq = self.thermo.rho * self.thermo.e
-        elif vname is self.AdditionalVariables["TotalEnthalpy"].name:
+        elif vname == self.AdditionalVariables["TotalEnthalpy"].name:
             varq = self.thermo.h + self.kinetic_energy / self.thermo.rho
-        elif vname is self.AdditionalVariables["SoundSpeed"].name:
+        elif vname == self.AdditionalVariables["SoundSpeed"].name:
             varq = self.thermo.c
-        elif vname is self.AdditionalVariables["MaxWaveSpeed"].name:
+        elif vname == self.AdditionalVariables["MaxWaveSpeed"].name:
             # |u| + c
             varq = np.linalg.norm(self.velocity, axis=2, keepdims=True) + self.thermo.c
-        elif vname is self.AdditionalVariables["Velocity"].name:
+        elif vname == self.AdditionalVariables["Velocity"].name:
             varq = np.linalg.norm(self.velocity, axis=2, keepdims=True)
-        elif vname is self.AdditionalVariables["XVelocity"].name:
+        elif vname == self.AdditionalVariables["XVelocity"].name:
             varq = self.velocity[:, :, [0]]
-        elif vname is self.AdditionalVariables["YVelocity"].name:
+        elif vname == self.AdditionalVariables["YVelocity"].name:
             varq = self.velocity[:, :, [1]]
-        elif vname is self.AdditionalVariables["ZVelocity"].name:
+        elif vname == self.AdditionalVariables["ZVelocity"].name:
             varq = self.velocity[:, :, [2]]
         else:
             raise NotImplementedError
@@ -335,6 +349,7 @@ class Euler(base.PhysicsBase):
 
         rho = self.thermo.rho
         u = self.velocity
+        umag2 = (u*u).sum(axis=2, keepdims=True)
         rhou = Uq[:, :, None, srhou] # [n, nq, 1, ndims]
 
         # Calculate pressure
@@ -349,7 +364,7 @@ class Euler(base.PhysicsBase):
 
         # Get mass fraction(s)
         Y = self.thermo.Y[..., None]
-        # Get enthalpy
+        # Get total enthalpy
         h = (self.thermo.h + self.kinetic_energy / rho)[..., None]
 
         # Assemble flux matrix
@@ -358,7 +373,7 @@ class Euler(base.PhysicsBase):
         F[:, :, srhou, :] = momentum_flux  # Flux of momentum
         F[:, :, srhoE, :] = h * rhou       # Flux of energy
 
-        return F, (u**2, rho, p)
+        return F, (umag2, self.thermo.c, rho, p)
 
     def get_conv_eigenvectors(self, U_bar):
         '''
@@ -386,20 +401,16 @@ class Euler(base.PhysicsBase):
 
         srho, srhou, srhoE = self.get_state_slices()
 
-        rho = U_bar[:, :, srho]
-        rhou = U_bar[:, :, srhou]
-        rhoE = U_bar[:, :, srhoE]
-
         # Get velocity
-        u = self.velocity
+        u = self.velocity[..., None]
         # Get squared velocity
-        u2 = u**2
-        # Calculate pressure using the Ideal Gasd Law
-        p = self.thermo.p # [n, nq]
+        u2 = u*u
+        # Calculate pressure
+        p = self.thermo.p[..., None] # [n, nq, 1]
         # Get total specific enthalpy
-        H = self.thermo.h
+        H = (self.thermo.h + self.kinetic_energy / self.thermo.rho)[..., None]
         # Get sound speed
-        a = self.thermo.c
+        a = self.thermo.c[..., None]
 
         gm1oa2 = (self.thermo.gamma - 1.) / (a * a)
 

@@ -177,7 +177,7 @@ Physics = {
 	"Type" : "ConstAdvScalar",
 		# Physics type
 		# See general.PhysicsType
-	"ThermoModel" : "NotNeeded",
+	"ThermoModel" : "CaloricallyPerfectGas",
 		# Physics thermodynamic properties
 		# See general.ThermoType
 	"TransportModel" : "NotNeeded",

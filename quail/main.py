@@ -91,11 +91,11 @@ def set_transport(TransportModel='NotNeeded', **kwargs):
     '''
 
     if TransportType[TransportModel] == TransportType.Constant:
-        return transport_tools.ConstantTransport
+        return transport_tools.ConstantTransport(**kwargs)
     elif TransportType[TransportModel] == TransportType.Sutherland:
-        return transport_tools.SutherlandTransport
+        return transport_tools.SutherlandTransport(**kwargs)
     elif TransportType[TransportModel] == TransportType.Cantera:
-        return transport_tools.CanteraTransport
+        return transport_tools.CanteraTransport(**kwargs)
     # elif TransportType[transport_type] == TransportType.Mutationpp:
     # 	return transport_tools.MutationppTransport
     elif TransportType[TransportModel] == TransportType.NotNeeded:
@@ -145,10 +145,8 @@ def set_physics(mesh, physics_type, thermo, transport):
         physics_class = zerod.Pendulum
     elif PhysicsType[physics_type] == PhysicsType.Euler:
         physics_class = euler.Euler
-    elif PhysicsType[physics_type] == PhysicsType.NavierStokes and ndims == 1:
-        physics_class = navierstokes.NavierStokes1D
-    elif PhysicsType[physics_type] == PhysicsType.NavierStokes and ndims == 2:
-        physics_class = navierstokes.NavierStokes2D
+    elif PhysicsType[physics_type] == PhysicsType.NavierStokes:
+        physics_class = navierstokes.NavierStokes
     elif PhysicsType[physics_type] == PhysicsType.Chemistry and ndims ==1:
         physics_class = chemistry.Chemistry1D
     else:
@@ -502,20 +500,18 @@ def process_post_file(post_file, auto_process):
         auto_process: if True, will automatically run the post-processing
             script at the end of the simulation
     '''
-    if post_file != None:
-        post_file = post_file.replace(".py","")
-        try:
-            print("\nRunning post-processing script")
-            postprocess = importlib.import_module(post_file)
-        except ModuleNotFoundError:
-            raise errors.FileReadError(f"{post_file}.py not found")
-    if auto_process == True and post_file == None:
+    if post_file is None:
+        if not auto_process:
+            return
         post_file = "post_process"
-        try:
-            print("\nRunning post-processing script")
-            postprocess = importlib.import_module(post_file)
-        except ModuleNotFoundError:
-            print("Warning: post_process.py file not found")
+
+    post_file = post_file.replace(".py","")
+
+    try:
+        print("\nRunning post-processing script")
+        postprocess = importlib.import_module(post_file)
+    except ModuleNotFoundError:
+        raise errors.FileReadError(f"{post_file}.py not found")
 
 
 def main():

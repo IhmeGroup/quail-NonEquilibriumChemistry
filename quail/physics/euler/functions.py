@@ -542,7 +542,7 @@ class TaylorGreenVortex(FcnBase):
         gamma = physics.thermo.gamma
         Rg = physics.thermo.R
 
-        irho, irhou, irhov, irhoE = physics.get_state_indices()
+        srho, srhou, srhoE = physics.get_state_slices()
 
         # State
         rho = 1.
@@ -553,10 +553,9 @@ class TaylorGreenVortex(FcnBase):
         E = p/(rho*(gamma - 1.)) + 0.5*(u**2. + v**2.)
 
         # Store
-        Uq[:, :, irho] = rho
-        Uq[:, :, irhou] = rho*u
-        Uq[:, :, irhov] = rho*v
-        Uq[:, :, irhoE] = rho*E
+        Uq[:, :, srho] = rho
+        Uq[:, :, srhou] = np.stack([rho*u, rho*v], axis=2)
+        Uq[:, :, srhoE] = (rho*E)[..., None]
 
         return Uq # [ne, nq, ns]
 
@@ -866,7 +865,7 @@ class TaylorGreenSource(SourceBase):
     def get_source(self, physics, Uq, x, t):
         gamma = physics.thermo.gamma
 
-        irho, irhou, irhov, irhoE = physics.get_state_indices()
+        _, _, irhoE = physics.get_state_indices()
 
         S = np.zeros_like(Uq)
 
@@ -930,10 +929,12 @@ and methods. Information specific to the corresponding child classes can
 be found below. These classes should correspond to the ConvNumFluxType
 or DiffNumFluxType enum members above.
 '''
-class LaxFriedrichs1D(ConvNumFluxBase):
+
+
+class LaxFriedrichs(ConvNumFluxBase):
     '''
-    This class corresponds to the local Lax-Friedrichs flux function for the
-    Euler1D class. This replaces the generalized, less efficient version of
+    This class corresponds to the local Lax-Friedrichs flux function.
+    This replaces the generalized, less efficient version of
     the Lax-Friedrichs flux found in base.
     '''
     def compute_flux(self, physics, UqL, UqR, normals):
@@ -942,53 +943,17 @@ class LaxFriedrichs1D(ConvNumFluxBase):
         n_hat = normals/n_mag
 
         # Left flux
-        FqL, (u2L, rhoL, pL) = physics.get_conv_flux_projected(UqL, n_hat)
+        FqL, (u2L, aL, rhoL, pL) = physics.get_conv_flux_projected(UqL, n_hat)
 
         # Right flux
-        FqR, (u2R, rhoR, pR) = physics.get_conv_flux_projected(UqR, n_hat)
+        FqR, (u2R, aR, rhoR, pR) = physics.get_conv_flux_projected(UqR, n_hat)
 
         # Jump
         dUq = UqR - UqL
 
         # Max wave speeds at each point
-        aL = np.empty(pL.shape + (1,))
-        aR = np.empty(pR.shape + (1,))
-        aL[:, :, 0] = np.sqrt(u2L) + np.sqrt(physics.thermo.gamma * pL / rhoL)
-        aR[:, :, 0] = np.sqrt(u2R) + np.sqrt(physics.thermo.gamma * pR / rhoR)
-        idx = aR > aL
-        aL[idx] = aR[idx]
-
-        # Put together
-        return 0.5 * n_mag * (FqL + FqR - aL*dUq)
-
-
-class LaxFriedrichs2D(ConvNumFluxBase):
-    '''
-    This class corresponds to the local Lax-Friedrichs flux function for the
-    Euler2D class. This replaces the generalized, less efficient version of
-    the Lax-Friedrichs flux found in base.
-    '''
-    def compute_flux(self, physics, UqL, UqR, normals):
-        # Normalize the normal vectors
-        n_mag = np.linalg.norm(normals, axis=2, keepdims=True)
-        n_hat = normals/n_mag
-
-        # Left flux
-        FqL, (gammaL, u2L, rhoL, pL) = physics.get_conv_flux_projected(UqL,
-                n_hat)
-
-        # Right flux
-        FqR, (gammaR, u2R, rhoR, pR) = physics.get_conv_flux_projected(UqR,
-                n_hat)
-
-        # Jump
-        dUq = UqR - UqL
-
-        # Max wave speeds at each point
-        aL = np.empty(pL.shape + (1,))
-        aR = np.empty(pR.shape + (1,))
-        aL[:, :, 0] = np.sqrt(u2L) + np.sqrt(gammaL * pL / rhoL)
-        aR[:, :, 0] = np.sqrt(u2R) + np.sqrt(gammaR * pR / rhoR)
+        aL += np.sqrt(u2L)
+        aR += np.sqrt(u2R)
         idx = aR > aL
         aL[idx] = aR[idx]
 
@@ -1088,7 +1053,7 @@ class Roe1D(ConvNumFluxBase):
 
         return Uq
 
-    def roe_average_state(self, rhoL, rhoR, velL, velR, HL, HR):
+    def roe_average_state(self, rhoL, rhoR, YL, YR, velL, velR, HL, HR):
         '''
         This method computes the Roe-averaged variables.
 
@@ -1100,6 +1065,10 @@ class Roe1D(ConvNumFluxBase):
             points) [nf, nq, ndims]
         velR: right velocity (typically evaluated at the quadrature
             points) [nf, nq, ndims]
+        YL: left mass fractions (typically evaluated at the quadrature
+            points) [nf, nq, nsp]
+        YR: right mass fractions (typically evaluated at the quadrature
+            points) [nf, nq, nsp]
         UqL: left state (typically evaluated at the quadrature
             points) [nf, nq, ns]
         UqR: right state (typically evaluated at the quadrature
@@ -1113,14 +1082,16 @@ class Roe1D(ConvNumFluxBase):
         '''
         rhoL_sqrt = np.sqrt(rhoL)
         rhoR_sqrt = np.sqrt(rhoR)
+        denom = 1.0 / (rhoL_sqrt + rhoR_sqrt)
 
-        velRoe = (rhoL_sqrt*velL + rhoR_sqrt*velR)/(rhoL_sqrt+rhoR_sqrt)
+        YRoe = (rhoL_sqrt*YL + rhoR_sqrt*YR)*denom
+        velRoe = (rhoL_sqrt*velL + rhoR_sqrt*velR)*denom
         rhoRoe = rhoL_sqrt*rhoR_sqrt
-        HRoe = (rhoL_sqrt*HL + rhoR_sqrt*HR)/(rhoL_sqrt+rhoR_sqrt)
+        HRoe = (rhoL_sqrt*HL + rhoR_sqrt*HR)*denom
 
-        return rhoRoe, velRoe, HRoe
+        return rhoRoe, YRoe, velRoe, HRoe
 
-    def get_differences(self, rhoL, rhoR, velL, velR, pL, pR):
+    def get_differences(self, rhoL, rhoR, YL, YR, velL, velR, pL, pR):
         '''
         This method computes velocity, density, and pressure jumps.
 
@@ -1142,7 +1113,7 @@ class Roe1D(ConvNumFluxBase):
         dp: pressure jump [nf, nq, 1]
         '''
         dvel = velR - velL
-        drho = rhoR - rhoL
+        drho = rhoR*YR - rhoL*YL
         dp = pR - pL
 
         return drho, dvel, dp
@@ -1237,7 +1208,7 @@ class Roe1D(ConvNumFluxBase):
         self.R = np.zeros([n, nq, ns, ns])
 
         # Unpack
-        srho = physics.get_state_slice("Density")
+        srho = physics.get_state_slice("Densities")
         srhou = physics.get_state_slice("Momentum")
 
         # Unit normals
@@ -1255,22 +1226,22 @@ class Roe1D(ConvNumFluxBase):
         # Get left state
         physics.set_thermo_state(UqL)
         gamma = physics.thermo.gamma
-        YL = physics.thermo.Y
         rhoL = physics.thermo.rho
+        YL = physics.thermo.Y
         velL = physics.velocity
         pL = physics.thermo.p
         HL = physics.thermo.h + physics.kinetic_energy / rhoL
 
         # Get right state
         physics.set_thermo_state(UqR)
-        YR = physics.thermo.Y
         rhoR = physics.thermo.rho
+        YR = physics.thermo.Y
         velR = physics.velocity
         pR = physics.thermo.p
         HR = physics.thermo.h + physics.kinetic_energy / rhoR
 
         # Roe-averaged state
-        rhoRoe, velRoe, HRoe = self.roe_average_state(rhoL, rhoR, velL, velR, HL, HR)
+        rhoRoe, YRoe, velRoe, HRoe = self.roe_average_state(rhoL, rhoR, YL, YR, velL, velR, HL, HR)
 
         # Speed of sound from Roe-averaged state
         c2 = (gamma - 1.)*(HRoe - 0.5*np.sum(velRoe*velRoe, axis=2,
@@ -1281,7 +1252,7 @@ class Roe1D(ConvNumFluxBase):
         c = np.sqrt(c2)
 
         # Jumps
-        drho, dvel, dp = self.get_differences(rhoL, rhoR, velL, velR, pL, pR)
+        drho, dvel, dp = self.get_differences(rhoL, rhoR, YL, YR, velL, velR, pL, pR)
 
         # alphas (left eigenvectors multiplied by dU)
         alphas = self.get_alphas(c, c2, dp, dvel, drho, rhoRoe)
