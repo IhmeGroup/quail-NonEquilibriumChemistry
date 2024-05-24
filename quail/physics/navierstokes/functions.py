@@ -80,33 +80,35 @@ class ManufacturedSolution(FcnBase):
 		# Unpack
 		gamma = physics.thermo.gamma
 
-		irho, irhou, irhov, irhoE = physics.get_state_indices()
+		srho, srhou, srhoE = physics.get_state_slices()
 
-		x1 = x[:, :, 0]
-		x2 = x[:, :, 1]
+		x1 = x[:, :, [0]]
+		x2 = x[:, :, [1]]
 
 		''' Fill state '''
 		Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
 		# Generated initial condition from sympy
 
-		Uq[:, :, irho] = 0.1*np.sin(np.pi*x1) + 0.1* \
+		Uq[:, :, srho] = 0.1*np.sin(np.pi*x1) + 0.1* \
 			np.cos(np.pi*x1)*np.cos(np.pi*x2) -  \
 			0.2*np.cos(np.pi*x2) + 1.0
 
-		Uq[:, :, irhou] = (0.1*np.sin(np.pi*x1) + 0.1* \
+		S_rhou = (0.1*np.sin(np.pi*x1) + 0.1* \
 			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
 			np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(3* \
 			np.pi*x1) + 0.3*np.cos(np.pi*x1)* \
 			np.cos(np.pi*x2) + 0.3*np.cos(np.pi*x2) + 2.0)
 
-		Uq[:, :, irhov] = (0.1*np.sin(np.pi*x1) + 0.1* \
+		S_rhov = (0.1*np.sin(np.pi*x1) + 0.1* \
 			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
 			np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(np.pi*x2) \
 			+ 0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
 			np.cos(np.pi*x1) + 2.0)
 
-		Uq[:, :, irhoE] = (4.0*(0.15*np.sin(3*np.pi*x1) + 0.15* \
+		Uq[:, :, srhou] = np.concatenate([S_rhou, S_rhov], axis=2)
+
+		Uq[:, :, srhoE] = (4.0*(0.15*np.sin(3*np.pi*x1) + 0.15* \
 			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
 			np.cos(np.pi*x2) + 1)**2 + 4.0*(0.15* \
 			np.sin(np.pi*x2) + 0.15*np.cos(np.pi*x1)* \
@@ -128,8 +130,8 @@ class TaylorGreenVortexNS(FcnBase):
 		pass
 	def get_state(self, physics, x, t):
 		# Unpack
-		x1 = x[:, :, 0]
-		x2 = x[:, :, 1]
+		x1 = x[:, :, [0]]
+		x2 = x[:, :, [1]]
 
 		Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
@@ -152,9 +154,9 @@ class TaylorGreenVortexNS(FcnBase):
 		Uq[:, :, srho] = 1.0
 		rhou = np.sin(2.*np.pi * x1) * np.cos(2.*np.pi * x2) * F
 		rhov = -np.cos(2.*np.pi * x1) * np.sin(2.*np.pi * x2) * F
-		Uq[:, :, srhou] = np.stack([rhou, rhov], axis=2)
+		Uq[:, :, srhou] = np.concatenate([rhou, rhov], axis=2)
 		Uq[:, :, srhoE] = (P / (gamma-1.))[..., None] + 0.5 * (
-			rhou*rhou + rhov*rhov)[..., None] / Uq[:, :, srho]
+			rhou*rhou + rhov*rhov) / Uq[:, :, srho]
 
 		return Uq
 
@@ -191,21 +193,20 @@ class ManufacturedSource(SourceBase):
 	def get_source(self, physics, Uq, x, t):
 		# Unpack
 		gamma = physics.thermo.gamma
-		R = physics.R
+		R = physics.thermo.R
 
-		irho, irhou, irhov, irhoE = physics.get_state_indices()
-		x1 = x[:, :, 0]
-		x2 = x[:, :, 1]
+		srho, srhou, srhoE = physics.get_state_slices()
+		x1 = x[:, :, [0]]
+		x2 = x[:, :, [1]]
 
-		mu, kappa = physics.get_transport(physics, Uq,
-			flag_non_physical=False)
+		mu = physics.transport.get_viscosity(physics.thermo)
+		kappa = physics.transport.get_thermal_conductivity(physics.thermo)
 		# import code; code.interact(local=locals())
 		Sq = np.zeros_like(Uq)
-		Sq[:, :, irho], Sq[:, :, irhou], Sq[:, :, irhov], \
-			Sq[:, :, irhoE] = self.manufactured_source(x1, x2,
-			t, gamma, kappa,
-			mu, R)
+		Sq[:, :, srho], S_rhou, S_rhov, Sq[:, :, srhoE] = \
+			self.manufactured_source(x1, x2, t, gamma, kappa, mu, R)
 
+		Sq[:, :, srhou] = np.concatenate([S_rhou, S_rhov], axis=2)
 
 		return Sq # [ne, nq, ns]
 
@@ -489,14 +490,14 @@ class IsothermalWall(BCWeakPrescribed):
 		srho, srhou, srhoE = physics.get_state_slices()
 
 		# Interior pressure and mass fractions
-		pI = physics.compute_variables("Pressure", UqI)
+		pI = physics.compute_variable("Pressure", UqI)
 		YI = physics.thermo.Y
 		if np.any(pI < 0.):
 			raise errors.NotPhysicalError
-		
+
 		# Set the boundary thermodynamic state with the specified wall temperature
 		# wall pressure pB = pI
-		physics.thermo.set_state_from_T_P_Y(self.Twall, pI, YI)
+		physics.thermo.set_state_from_Y_T_p(YI, self.Twall, pI)
 
 		# Boundary density
 		rhoB = physics.thermo.rho

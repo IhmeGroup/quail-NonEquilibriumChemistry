@@ -152,6 +152,6 @@ class NavierStokes(euler.Euler):
         F[:,:,srho, :] = 0.		# x,y-flux of rho (zero both dir)
         F[:,:,srhou,:] = tauij  # Stress tensor
         F[:,:,srhoE,:] = (u[..., None] * tauij).sum(axis=2, keepdims=True) + \
-            kappa * np.einsum('ijk, ijkl -> ijl', dTdU, gUq)[:,:,None,:]
+            (kappa * np.einsum('ijk, ijkl -> ijl', dTdU, gUq))[:,:,None,:]
 
         return F # [n, nq, ns, ndims]
