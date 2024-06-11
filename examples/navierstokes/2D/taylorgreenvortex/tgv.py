@@ -32,7 +32,7 @@ Physics = {
 	"Type" : "NavierStokes",
 	"ConvFluxNumerical" : "Roe",
 	"DiffFluxNumerical" : "SIP",
-	"Transport" : "Constant",
+	"TransportModel" : "Constant",
 	"GasConstant" : 7142.857142857142,
 	"Viscosity" : 1.863e-5,
 }

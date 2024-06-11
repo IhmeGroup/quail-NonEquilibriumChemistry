@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import numpy as np
 import pytest
 
@@ -18,7 +19,7 @@ def test_data():
 		quail_dir: the absolute path of the Quail directory
 	'''
 	# Get Quail directory
-	quail_dir = os.path.dirname(os.getcwd())
+	quail_dir = Path(__file__).parents[2]
 
 	# Name and path of data file which stores the regression test data
 	datafile_name = f'{quail_dir}/test/end_to_end/regression_data.npz'
