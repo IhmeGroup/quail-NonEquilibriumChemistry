@@ -1,9 +1,7 @@
 import numpy as np
 import pytest
-import sys
-sys.path.append('../src')
 
-import meshing.meshbase as mesh_defs
+import quail.meshing.meshbase as mesh_defs
 
 rtol = 1e-15
 atol = 1e-15

@@ -1,18 +1,15 @@
 import os
 import pickle
 import subprocess
-import sys
-sys.path.append('../../src')
 import numpy as np
 
 import list_of_cases
-import physics.euler.euler as euler
-import physics.scalar.scalar as scalar
-import physics.navierstokes.navierstokes as navierstokes
-import physics.navierstokes.tools as ns_tools
-import physics.chemistry.chemistry as chemistry
-import solver.DG as DG
-import solver.ADERDG as ADERDG
+import quail.physics.euler.euler as euler
+import quail.physics.scalar.scalar as scalar
+import quail.physics.navierstokes.navierstokes as navierstokes
+import quail.physics.chemistry.chemistry as chemistry
+import quail.solver.DG as DG
+import quail.solver.ADERDG as ADERDG
 
 
 def generate_regression_test_data():
@@ -33,7 +30,7 @@ def generate_regression_test_data():
 		exit()
 
 	# Get script directory
-	script_dir = sys.path[0]
+	script_dir = os.getcwd()
 
 	# Add full path to case directories
 	case_dirs = [f'{script_dir}/cases/{case_dir}' for case_dir in
@@ -50,7 +47,7 @@ def generate_regression_test_data():
 		os.chdir(case_dir)
 		# Call the Quail executable
 		text_output = subprocess.check_output([
-				f'{script_dir}/../../src/quail', 'input_file.py',
+				f'{script_dir}/../../quail/main.py', 'input_file.py',
 				], stderr=subprocess.STDOUT)
 		# Print text output of Quail
 		print(text_output.decode('utf-8'))

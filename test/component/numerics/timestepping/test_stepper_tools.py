@@ -1,16 +1,12 @@
 import numpy as np
-import pytest
-import sys
-sys.path.append('../src')
 
-import numerics.timestepping.stepper as stepper_defs
-import numerics.timestepping.tools as stepper_tools
-import meshing.common as mesh_common
-from general import StepperType
-import general
+import quail.numerics.timestepping.stepper as stepper_defs
+import quail.numerics.timestepping.tools as stepper_tools
+import quail.meshing.common as mesh_common
+import quail.general as general
 
-import physics.scalar.scalar as scalar
-import solver.DG as DG
+import quail.physics.scalar.scalar as scalar
+import quail.solver.DG as DG
 
 rtol = 1e-14
 atol = 1e-14

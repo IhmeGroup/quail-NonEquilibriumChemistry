@@ -1,10 +1,8 @@
 import numpy as np
-import pytest
-import sys
-sys.path.append('../src')
 
-import physics.navierstokes.navierstokes as navierstokes
-import physics.navierstokes.tools as ns_tools
+import quail.physics.navierstokes.navierstokes as navierstokes
+import quail.physics.base.thermo as thermo
+import quail.physics.base.transport as transport
 
 rtol = 1e-15
 atol = 1e-15
@@ -14,9 +12,10 @@ def test_diffusion_flux_2D():
 	'''
 	This tests the diffusive flux for a 2D case.
 	'''
-	physics = navierstokes.NavierStokes2D()
+	physics = navierstokes.NavierStokes(thermo=thermo.CaloricallyPerfectGas(),
+									    transport=transport.SutherlandTransport(beta=1.5),
+										NDIMS=2)
 	physics.set_physical_params()
-	physics.get_transport = ns_tools.set_transport("Sutherland")
 
 	ns = physics.NUM_STATE_VARS
 
@@ -24,21 +23,23 @@ def test_diffusion_flux_2D():
 	rho = 1.1
 	u = 2.5
 	v = 3.5
-	gamma = physics.gamma
-	R = physics.R
+	gamma = physics.thermo.gamma
+	R = physics.thermo.R
 	rhoE = P / (gamma - 1.) + 0.5 * rho * (u * u + v * v)
 
 	Uq = np.zeros([1, 1, ns])
 
-	irho, irhou, irhov, irhoE = physics.get_state_indices()
+	srho, srhou, srhoE = physics.get_state_slices()
 
-	Uq[:, :, irho] = rho
-	Uq[:, :, irhou] = rho * u
-	Uq[:, :, irhov] = rho * v
-	Uq[:, :, irhoE] = rhoE
+	Uq[:, :, srho] = rho
+	Uq[:, :, srhou] = [rho * u, rho * v]
+	Uq[:, :, srhoE] = rhoE
 
 	# Calculate viscosity and thermal conductivity
-	mu, kappa = physics.get_transport(physics, Uq)
+	e = (Uq[..., srhoE] - 0.5*rho*(u**2+v**2))/Uq[..., srho]
+	physics.thermo.set_state_from_rhoi_e(Uq[..., srho], e)
+	mu = physics.transport.get_viscosity(physics.thermo)
+	kappa = physics.transport.get_thermal_conductivity(physics.thermo)
 	nu = mu / rho
 
 	# Get temperature
@@ -62,28 +63,30 @@ def test_diffusion_flux_2D():
 
 	gUq = np.zeros([1, 1, ns, 2])
 
-	gUq[:, :, irho, 0] = drdx
-	gUq[:, :, irhou, 0] = drdx * u + rho * dudx
-	gUq[:, :, irhov, 0] = drdx * v + rho * dvdx
-	gUq[:, :, irhoE, 0] = (R * T / (gamma - 1.) + \
-		0.5 * (u * u + v * v)) * drdx + rho * u * dudx \
-		+ rho * v * dvdx + rho * R / (gamma - 1.) * dTdx
+	gUq[:, :, srho, 0] = drdx
+	gUq[:, :, srhou, 0] = np.array([drdx * u + rho * dudx, drdx * v + rho * dvdx]).reshape((1,1,2))
+	gUq[:, :, srhoE, 0] = (
+		(R * T / (gamma - 1.) + 0.5 * (u * u + v * v)) * drdx
+		+ rho * u * dudx
+		+ rho * v * dvdx
+		+ rho * R / (gamma - 1.) * dTdx
+	)
 
-	gUq[:, :, irho, 1] = drdy
-	gUq[:, :, irhou, 1] = drdy * u + rho * dudy
-	gUq[:, :, irhov, 1] = drdy * v + rho * dvdy
-	gUq[:, :, irhoE, 1] = (R * T / (gamma - 1.) + \
-		0.5 * (u * u + v * v)) * drdy + rho * u * dudy \
-		+ rho * v * dvdy + rho * R / (gamma - 1.) * dTdy
+	gUq[:, :, srho, 1] = drdy
+	gUq[:, :, srhou, 1] = np.array([drdy * u + rho * dudy, drdy * v + rho * dvdy]).reshape((1,1,2))
+	gUq[:, :, srhoE, 1] = (
+		(R * T / (gamma - 1.) + 0.5 * (u * u + v * v)) * drdy
+		+ rho * u * dudy
+		+ rho * v * dvdy
+		+ rho * R / (gamma - 1.) * dTdy
+	)
 
 	Fref = np.zeros([1, 1, ns, 2])
-	Fref[:, :, irhou, 0] = tauxx
-	Fref[:, :, irhov, 0] = tauxy
-	Fref[:, :, irhoE, 0] = tauxx * u + tauxy * v + kappa * dTdx
+	Fref[:, :, srhou, 0] = np.array([tauxx, tauxy]).reshape((1,1,2))
+	Fref[:, :, srhoE, 0] = tauxx * u + tauxy * v + kappa * dTdx
 
-	Fref[:, :, irhou, 1] = tauxy
-	Fref[:, :, irhov, 1] = tauyy
-	Fref[:, :, irhoE, 1] = tauxy * u + tauyy * v + kappa * dTdy
+	Fref[:, :, srhou, 1] = np.array([tauxy, tauyy]).reshape((1,1,2))
+	Fref[:, :, srhoE, 1] = tauxy * u + tauyy * v + kappa * dTdy
 
 	F = physics.get_diff_flux_interior(Uq, gUq)
 
@@ -95,30 +98,33 @@ def test_diffusion_flux_2D_zero_velocity():
 	'''
 	This tests the diffusive flux for a 2D case with zero vel
 	'''
-	physics = navierstokes.NavierStokes2D()
+	physics = navierstokes.NavierStokes(thermo=thermo.CaloricallyPerfectGas(),
+									    transport=transport.SutherlandTransport(),
+										NDIMS=2)
 	physics.set_physical_params()
-	physics.get_transport = ns_tools.set_transport("Sutherland")
 
 	ns = physics.NUM_STATE_VARS
 
 	P = 101325.
 	rho = 1.1
 
-	gamma = physics.gamma
-	R = physics.R
+	gamma = physics.thermo.gamma
+	R = physics.thermo.R
 	rhoE = P / (gamma - 1.)
 
 	Uq = np.zeros([1, 1, ns])
 
-	irho, irhou, irhov, irhoE = physics.get_state_indices()
+	srho, srhou, srhoE = physics.get_state_slices()
 
-	Uq[:, :, irho] = rho
-	Uq[:, :, irhou] = 0.
-	Uq[:, :, irhov] = 0.
-	Uq[:, :, irhoE] = rhoE
+	Uq[:, :, srho] = rho
+	Uq[:, :, srhou] = [0., 0.]
+	Uq[:, :, srhoE] = rhoE
 
 	# Calculate viscosity
-	mu, kappa = physics.get_transport(physics, Uq)
+	e = Uq[..., srhoE] / Uq[..., srho] # kinetic energy is zero
+	physics.thermo.set_state_from_rhoi_e(Uq[..., srho], e)
+	mu = physics.transport.get_viscosity(physics.thermo)
+	kappa = physics.transport.get_thermal_conductivity(physics.thermo)
 	mu = mu[0,0,0]
 	kappa = kappa[0,0,0]
 
@@ -136,17 +142,17 @@ def test_diffusion_flux_2D_zero_velocity():
 	dTdy = np.random.rand()
 
 	gUq = np.zeros([1, 1, ns, 2])
-	gUq[:, :, irho, 0] = drdx
-	gUq[:, :, irhoE, 0] = (R * T / (gamma - 1.)) * drdx \
+	gUq[:, :, srho, 0] = drdx
+	gUq[:, :, srhoE, 0] = (R * T / (gamma - 1.)) * drdx \
 		+ rho * R / (gamma - 1.) * dTdx
 
-	gUq[:, :, irho, 1] = drdy
-	gUq[:, :, irhoE, 1] = (R * T / (gamma - 1.)) * drdy \
+	gUq[:, :, srho, 1] = drdy
+	gUq[:, :, srhoE, 1] = (R * T / (gamma - 1.)) * drdy \
 		+ rho * R / (gamma - 1.) * dTdy
 
 	Fref = np.zeros([1, 1, ns, 2])
-	Fref[:, :, irhoE, 0] = kappa * dTdx
-	Fref[:, :, irhoE, 1] = kappa * dTdy
+	Fref[:, :, srhoE, 0] = kappa * dTdx
+	Fref[:, :, srhoE, 1] = kappa * dTdy
 
 	F = physics.get_diff_flux_interior(Uq, gUq)
 	np.testing.assert_allclose(F, Fref, kappa*rtol, kappa*atol)

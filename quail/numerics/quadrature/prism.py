@@ -59,6 +59,6 @@ def get_quadrature_points_weights(order, quad_type):
 	# Fill the third dimension with correct segment quadrature
 	for iseg in range(qpts_seg.shape[0]):
 		for ib in range(qpts_tri.shape[0]):
-			qpts[iseg * qpts_tri.shape[0] + ib, -1] = qpts_seg[iseg]
+			qpts[iseg * qpts_tri.shape[0] + ib, -1] = qpts_seg[iseg][0]
 
 	return qpts, qwts

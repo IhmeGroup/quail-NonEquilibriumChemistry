@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pytest
-import sys
 
 import list_of_cases
 

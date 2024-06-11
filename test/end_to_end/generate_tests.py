@@ -1,10 +1,5 @@
-import numpy as np
 import os
-import subprocess
-import sys
 import itertools
-
-sys.path.append('../../src')
 
 import list_of_cases
 
@@ -20,7 +15,7 @@ def generate_tests():
 	'''
 
 	# Get script directory
-	script_dir = sys.path[0]
+	script_dir = os.getcwd()
 
 	# Add full path to case directories
 	case_dirs = [f'{script_dir}/cases/{case_dir}' for case_dir in

@@ -1,14 +1,6 @@
 import numpy as np
-import pytest
-import sys
-sys.path.append('../src')
 
-import numerics.basis.basis as basis_defs
-import numerics.basis.tools as basis_tools
-
-import solver.DG as DG
-import meshing.meshbase as meshbase
-import numerics.helpers.helpers as helpers
+import quail.numerics.helpers.helpers as helpers
 
 
 rtol = 1e-15

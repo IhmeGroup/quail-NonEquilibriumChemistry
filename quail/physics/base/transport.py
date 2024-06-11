@@ -92,7 +92,7 @@ class SutherlandTransport(TransportBase):
         mu: viscosity [ne, nq]
         kappa: thermal conductivity [ne, nq]
     '''
-    def __init__(self, PrandtlNumber=0.7, Viscosity=1.0, s=1.0, T0=1.0, beta=1., **kwargs):
+    def __init__(self, PrandtlNumber=0.7, Viscosity=1.0, s=1.0, T0=1.0, beta=1.5, **kwargs):
         super().__init__(**kwargs)
         self.Pr = PrandtlNumber
         self.mu0 = Viscosity
