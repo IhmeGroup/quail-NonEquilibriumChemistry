@@ -324,10 +324,8 @@ class Euler(base.PhysicsBase):
         srho, srhou, srhoE = self.get_state_slices()
         rho = self.thermo.rho
         rhou = Uq[:, :, srhou]
-        rhoE = Uq[:, :, srhoE]
-        gamma = self.thermo.gamma
 
-        dedrho = -self.thermo.e / rho
+        dedrho = (self.kinetic_energy/rho - self.thermo.e) / rho
         dedrhou = -rhou / rho**2
         dedrhoE = 1.0 / rho
 
@@ -358,9 +356,9 @@ class Euler(base.PhysicsBase):
         # Get momentum flux matrix
         momentum_flux = u[..., :, None] * rhou  # [n, nq, ndims, ndims]
 
-        # Add pressure to the diagonal (Could eliminate the for loop with clever striding)
-        for i in range(self.NDIMS):
-            momentum_flux[..., (i,), (i,)] += p
+        # Add pressure to the diagonal
+        idx_diag = 2*(tuple(range(self.NDIMS)),)
+        momentum_flux[..., *idx_diag] += p
 
         # Get mass fraction(s)
         Y = self.thermo.Y[..., None]

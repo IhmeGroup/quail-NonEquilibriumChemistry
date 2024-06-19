@@ -138,8 +138,7 @@ class NavierStokes(euler.Euler):
         # Get the stress tensor (use product rules to write in
         # terms of the conservative gradients)
         # rho * dui/dxj = drhoui/dxj - ui * drho/dxj
-        idx_diag = tuple(i for i in range(self.NDIMS))
-        idx_diag = (idx_diag, idx_diag)
+        idx_diag = 2*(tuple(range(self.NDIMS)),)
         rhodiv = grhou[:, :, *idx_diag].sum(axis=2, keepdims=True)
 
         rho_gu = grhou - u[..., None]*grho
