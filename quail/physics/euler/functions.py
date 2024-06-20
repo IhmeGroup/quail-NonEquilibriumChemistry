@@ -519,10 +519,13 @@ class RiemannProblem(FcnBase):
                     # Right of the shock (region 1)
                     u[i,j] = u1; p[i,j] = p1; rho[i,j] = rho1
 
+        rhoi = rho*Yi
+        physics.thermo.set_state_from_rhoi_p(rhoi, p)
+
         Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
-        Uq[:, :, srho] = rho*Yi
+        Uq[:, :, srho] = rhoi
         Uq[:, :, srhou] = rho*u
-        Uq[:, :, srhoE] = p/(gamma-1.) + 0.5*rho*u*u
+        Uq[:, :, srhoE] = rho*physics.thermo.e + 0.5*rho*u*u
 
         return Uq # [ne, nq, ns]
 
