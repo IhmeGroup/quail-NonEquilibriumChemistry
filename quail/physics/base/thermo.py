@@ -54,6 +54,11 @@ class ThermoBase(ABC):
         pass
 
     def __init__(self, **kwargs):
+        self.init_params = kwargs
+        pass
+
+    def reinitialize(self):
+        self.__init__(**self.init_params)
         pass
 
     @property
@@ -167,7 +172,8 @@ class CaloricallyPerfectGas(ThermoBase):
     NUM_ENERGY = 1
 
     def __init__(self, GasConstant=287.0, SpecificHeatRatio=1.4, **kwargs):
-        super().__init__()
+        super().__init__(GasConstant=GasConstant,
+                         SpecificHeatRatio=SpecificHeatRatio)
         self.gamma = SpecificHeatRatio
         self.R = GasConstant
         self.Y = self.default_Y = np.array([1.0])
@@ -254,8 +260,8 @@ class CanteraThermo(ThermoBase):
     def NUM_SPECIES(self):
         return self.gas.n_species
 
-    def __init__(self, Mechanism='air.yaml', **kwargs):
-        super().__init__()
+    def __init__(self, Mechanism='air.yaml', OffsetEnergy=True, **kwargs):
+        super().__init__(Mechanism=Mechanism, OffsetEnergy=OffsetEnergy)
         self.Ru = ct.gas_constant
 
         # Initialize the gas phase
@@ -263,6 +269,44 @@ class CanteraThermo(ThermoBase):
         self.gas.basis = 'mass'
         self.species_names = self.gas.species_names
         self.default_Y = self.gas.Y
+
+        if OffsetEnergy:
+            # Subtract off the reference internal energies from the
+            # thermodynamic polynomial coefficients
+            eref = self.gas.standard_int_energies_RT
+            Tref = self.gas.min_temp
+            for isp, sp in enumerate(self.gas.species()):
+                data = sp.thermo.input_data
+                coeffs = np.array(data['data'])
+                Tranges = data['temperature-ranges']
+                Tmin = Tranges[0]
+                Tmax = Tranges[-1]
+                pref = sp.thermo.reference_pressure
+
+                if data['model'] == 'NASA7':
+                    coeffs = np.concatenate([[Tranges[1]], coeffs.flatten()])
+                    coeffs[[6, 13]] -= eref[isp]*Tref
+
+                    sp.thermo = ct.NasaPoly2(Tmin, Tmax, pref, coeffs)
+                elif data['model'] == 'NASA9':
+                    nzone = len(Tranges)-1
+                    coeff_nasa9 = np.zeros((11*nzone + 1,))
+                    coeff_nasa9[0] = nzone
+                    for i in range(nzone):
+                        o = 11*nzone
+                        coeff_nasa9[1+o] = Tranges[i]
+                        coeff_nasa9[2+o] = Tranges[i+1]
+                        coeffs[i, 7] -= eref[isp]*Tref
+                        coeff_nasa9[3+o:11+o] = coeffs[i, :]
+
+                    sp.thermo = ct.Nasa9PolyMultiTempRegion(Tmin, Tmax, pref, coeff_nasa9)
+                else:
+                    raise NotImplementedError("Cannot apply energy offset to Cantera" +
+                                              " thermodynamic type %s" % data['model'])
+
+            # Reinitialize the Solution object with the new species data
+            self.gas = ct.Solution(thermo=self.gas.thermo_model, species=self.gas.species(),
+                                   kinetics=self.gas.kinetics_model, reactions=self.gas.reactions())
 
         self.solution = None
 

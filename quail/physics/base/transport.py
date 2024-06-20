@@ -32,6 +32,11 @@ class TransportBase(ABC):
     This is a base class for transport property calculations.
     '''
     def __init__(self, **kwargs):
+        self.init_params = kwargs
+        pass
+
+    def reinitialize(self):
+        self.__init__(**self.init_params)
         pass
 
     def get_viscosity(self):
