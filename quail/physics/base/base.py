@@ -723,11 +723,11 @@ class PhysicsBase(ABC):
         --------
             varq: values of the given variable [nq, 1]
         '''
-        try:
+        if var_name in self.state_slices.keys():
             # First try state variables
             sidx = self.get_state_slice(var_name)
             varq = Uq[:, :, sidx].copy()
-        except KeyError:
+        else:
             # Now try additional
             varq = self.compute_additional_variable(var_name, Uq,
                     flag_non_physical)
@@ -752,3 +752,20 @@ class PhysicsBase(ABC):
             varq: values of the given variable [nq, 1]
         '''
         pass
+
+    def match_variable(self, vname, match):
+        '''
+        Checks whether a queried variable matches an additional variable.
+
+        Inputs:
+        -------
+            vname: Enum name of the queried variable.
+            match: Variable to match against.
+        
+        Outputs:
+        --------
+            True if the inputs match, False otherwise.
+        '''
+        if match in self.AdditionalVariables.__members__:
+            return vname == self.AdditionalVariables[match].name
+        return False
