@@ -254,7 +254,7 @@ class SolverBase(ABC):
 		# Currently, positivity-preserving limiter not compatible with
 		# modal triangular basis
 		if LimiterType.PositivityPreserving.name in params["ApplyLimiters"] \
-				or LimiterType.PositivityPreservingChem.name in params[
+				or LimiterType.PositivityPreservingEnergy.name in params[
 				"ApplyLimiters"]:
 			if basis.BASIS_TYPE == BasisType.HierarchicH1Tri:
 				raise errors.IncompatibleError

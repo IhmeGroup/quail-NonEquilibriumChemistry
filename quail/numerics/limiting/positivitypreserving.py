@@ -83,8 +83,8 @@ class PositivityPreserving(base.LimiterBase):
 	djac_elems: numpy array
 		stores Jacobian determinants for each element
 	'''
-	COMPATIBLE_PHYSICS_TYPES = [general.PhysicsType.Euler, \
-		general.PhysicsType.NavierStokes]
+	COMPATIBLE_PHYSICS_TYPES = [general.PhysicsType.Euler,
+								general.PhysicsType.NavierStokes]
 
 	def __init__(self, physics_type):
 		super().__init__(physics_type)
@@ -155,164 +155,24 @@ class PositivityPreserving(base.LimiterBase):
 		# Truncate theta1; otherwise, can get noticeably different
 		# results across machines, possibly due to poor conditioning in its
 		# calculation
-		theta1 = trunc(np.minimum(1., np.min(theta, axis=1)))
+		theta1 = trunc(np.minimum(1., np.min(theta, axis=1, keepdims=True)))
 
-		irho = physics.get_state_index(self.var_name1)
+		srho = physics.get_state_slice(self.var_name1)
 		# Get IDs of elements that need limiting
 		elem_IDs = np.unique(np.where(theta1 < 1.)[0])
-		# Modify density coefficients
-		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs, :, irho] = theta1[elem_IDs]*Uc[elem_IDs, :, irho] \
-					+ (1. - theta1[elem_IDs])*rho_bar[elem_IDs, 0]
-		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs, :, irho] *= theta1[elem_IDs]
-			Uc[elem_IDs, 0, irho] += (1. - theta1[elem_IDs, 0])*rho_bar[
-					elem_IDs, 0, 0]
-		else:
-			raise NotImplementedError
+		if len(elem_IDs) != 0:
+			# Modify density coefficients
+			if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
+				Uc[elem_IDs, :, srho] = theta1[elem_IDs]*Uc[elem_IDs, :, srho] \
+						+ (1. - theta1[elem_IDs])*rho_bar[elem_IDs]
+			elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
+				Uc[elem_IDs, :, srho] *= theta1[elem_IDs]
+				Uc[elem_IDs, 0, srho] += (1. - theta1[elem_IDs, 0, :])*rho_bar[
+						elem_IDs, 0, :]
+			else:
+				raise NotImplementedError
 
-		if np.any(theta1 < 1.):
 			# Intermediate limited solution
-			U_elem_faces = helpers.evaluate_state(Uc,
-					self.basis_val_elem_faces,
-					skip_interp=basis.skip_interp)
-
-		''' Limit pressure '''
-		# Compute pressure at quadrature points
-		p_elem_faces = physics.compute_variable(self.var_name2, U_elem_faces)
-		theta[:] = 1.
-		# Indices where pressure is negative
-		negative_p_indices = np.where(p_elem_faces < 0.)
-		elem_IDs = negative_p_indices[0]
-		i_neg_p  = negative_p_indices[1]
-
-		theta[elem_IDs, i_neg_p] = (p_bar[elem_IDs, :, 0] - POS_TOL) / (
-				p_bar[elem_IDs, :, 0] - p_elem_faces[elem_IDs, i_neg_p, :])
-
-		# Truncate theta2; otherwise, can get noticeably different
-		# results across machines, possibly due to poor conditioning in its
-		# calculation
-		theta2 = trunc(np.min(theta, axis=1))
-		# Get IDs of elements that need limiting
-		elem_IDs = np.where(theta2 < 1.)[0]
-		# Modify coefficients
-		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs] = np.einsum('im, ijk -> ijk', theta2[elem_IDs],
-					Uc[elem_IDs]) + np.einsum('im, ijk -> ijk', 1 - theta2[
-					elem_IDs], U_bar[elem_IDs])
-		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs] *= np.expand_dims(theta2[elem_IDs], axis=2)
-			Uc[elem_IDs, 0] += np.einsum('im, ijk -> ik', 1 - theta2[
-					elem_IDs], U_bar[elem_IDs])
-		else:
-			raise NotImplementedError
-
-		np.seterr(divide='warn')
-
-		return Uc # [ne, nq, ns]
-
-
-class PositivityPreservingChem(PositivityPreserving):
-	'''
-    Class: PPLimiter
-    ------------------
-    This class contains information about the positivity preserving limiter
-    '''
-
-	COMPATIBLE_PHYSICS_TYPES = [general.PhysicsType.Euler,
-							    general.PhysicsType.Chemistry]
-
-	def __init__(self, physics_type):
-		'''
-		Method: __init__
-		-------------------
-		Initializes PPLimiter object
-		'''
-		super().__init__(physics_type)
-		self.var_name3 = "Density"
-
-	def limit_solution(self, solver, Uc):
-		# Unpack
-		physics = solver.physics
-		elem_helpers = solver.elem_helpers
-		int_face_helpers = solver.int_face_helpers
-		basis = solver.basis
-
-		djac = self.djac_elems
-
-		# Interpolate state at quadrature points over element and on faces
-		U_elem_faces = helpers.evaluate_state(Uc, self.basis_val_elem_faces,
-				skip_interp=basis.skip_interp)
-		nq_elem = self.quad_wts_elem.shape[0]
-		U_elem = U_elem_faces[:, :nq_elem, :]
-
-		# Average value of state
-		U_bar = helpers.get_element_mean(U_elem, self.quad_wts_elem, djac,
-				self.elem_vols)
-		ne = self.elem_vols.shape[0]
-		# Density and pressure from averaged state
-		srhoi = physics.get_state_slice(self.var_name1)
-		rhoi_bar = physics.compute_variable(self.var_name1, U_bar)
-		rho_bar = rhoi_bar.sum(axis=2, keepdims=True)
-		p_bar = physics.compute_variable(self.var_name2, U_bar)
-
-		if np.any(p_bar < 0.) or np.any(rhoi_bar < 0.):
-			raise errors.NotPhysicalError
-
-		# Ignore divide-by-zero
-		np.seterr(divide='ignore')
-
-		''' Limit density '''
-		# Compute density at quadrature points
-		rho_elem_faces = physics.compute_variable(self.var_name3, U_elem_faces)
-		# Check if limiting is needed
-		theta1 = np.abs((rho_bar - POS_TOL)/(rho_bar - rho_elem_faces))
-		# Truncate theta1; otherwise, can get noticeably different
-		# results across machines, possibly due to poor conditioning in its
-		# calculation
-		theta1 = trunc(np.minimum(1., np.min(theta1, axis=1)))
-		# Get IDs of elements that need limiting
-		elem_IDs = np.unique(np.where(theta1 < 1.)[0])
-		# Modify coefficients
-		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs, :, srhoi] = np.einsum('im, ijk -> ijk', theta1[elem_IDs],
-					Uc[elem_IDs, :, srhoi]) + np.einsum('im, ijk -> ijk', 1. - theta1[
-					elem_IDs], rhoi_bar[elem_IDs])
-		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs] *= np.expand_dims(theta1[elem_IDs], axis=2)
-			Uc[elem_IDs, 0] += np.einsum('im, ijk -> ik', 1. - theta1[
-					elem_IDs], rhoi_bar[elem_IDs])
-		else:
-			raise NotImplementedError
-
-		if np.any(theta1 < 1.):
-			# Intermediate limited solution
-			U_elem_faces = helpers.evaluate_state(Uc,
-					self.basis_val_elem_faces,
-					skip_interp=basis.skip_interp)
-
-		''' Limit partial densities '''
-		# Compute partial densities
-		rhoi_elem_faces = physics.compute_variable(self.var_name1, U_elem_faces)
-		theta = np.abs(rhoi_bar/(rhoi_bar-rhoi_elem_faces+POS_TOL))
-		# Truncate theta2; otherwise, can get noticeably different
-		# results across machines, possibly due to poor conditioning in its
-		# calculation
-		theta2 = trunc(np.minimum(1., np.amin(theta, axis=1, keepdims=True)))
-
-		# Get IDs of elements that need limiting
-		elem_IDs = np.unique(np.where(theta2 < 1.)[0])
-		# Modify density coefficients
-		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs, :, srhoi] = theta2[elem_IDs]*Uc[elem_IDs, :,
-					srhoi] + (1. - theta2[elem_IDs])*rhoi_bar[elem_IDs]
-		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs, :, srhoi] *= theta2[elem_IDs]
-			Uc[elem_IDs, 0, srhoi] += (1. - theta2[elem_IDs])*rhoi_bar[elem_IDs]
-		else:
-			raise NotImplementedError
-
-		if np.any(theta2 < 1.):
 			U_elem_faces = helpers.evaluate_state(Uc,
 					self.basis_val_elem_faces,
 					skip_interp=basis.skip_interp)
@@ -326,26 +186,139 @@ class PositivityPreservingChem(PositivityPreserving):
 		elem_IDs = negative_p_indices[0]
 		i_neg_p  = negative_p_indices[1]
 
-		theta[elem_IDs, i_neg_p] = p_bar[elem_IDs, :, 0] / (
-				p_bar[elem_IDs, :, 0] - p_elem_faces[elem_IDs, i_neg_p])
+		theta[elem_IDs, i_neg_p] = (p_bar[elem_IDs, :, :] - POS_TOL) / (
+				p_bar[elem_IDs, :, :] - p_elem_faces[elem_IDs, i_neg_p, :])
 
-		# Truncate theta3; otherwise, can get noticeably different
+		# Truncate theta2; otherwise, can get noticeably different
 		# results across machines, possibly due to poor conditioning in its
 		# calculation
-		theta3 = trunc(np.min(theta, axis=1))
+		theta2 = trunc(np.min(theta, axis=1, keepdims=True))
 		# Get IDs of elements that need limiting
-		elem_IDs = np.unique(np.where(theta3 < 1.)[0])
-		# Modify coefficients
+		elem_IDs = np.unique(np.where(theta2 < 1.)[0])
+		if len(elem_IDs) != 0:
+			# Modify coefficients
+			if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
+				Uc[elem_IDs] = np.einsum('imk, ijk -> ijk', theta2[elem_IDs],
+						Uc[elem_IDs]) + np.einsum('imk, ijk -> ijk', 1 - theta2[
+						elem_IDs], U_bar[elem_IDs])
+			elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
+				Uc[elem_IDs] *= np.expand_dims(theta2[elem_IDs], axis=2)
+				Uc[elem_IDs, [0]] += np.einsum('im, ijk -> ik', 1 - theta2[
+						elem_IDs], U_bar[elem_IDs])
+			else:
+				raise NotImplementedError
+
+		np.seterr(divide='warn')
+
+		return Uc # [ne, nq, ns]
+
+
+class PositivityPreservingEnergy(PositivityPreserving):
+	'''
+    Class: PPLimiter
+    ------------------
+    This class contains information about the positivity preserving limiter
+    '''
+
+	COMPATIBLE_PHYSICS_TYPES = [general.PhysicsType.Euler,
+								general.PhysicsType.NavierStokes,
+								general.PhysicsType.Chemistry]
+
+	def __init__(self, physics_type):
+		'''
+		Method: __init__
+		-------------------
+		Initializes PPLimiter object
+		'''
+		super().__init__(physics_type)
+		self.var_name1 = "Densities"
+		self.var_name2 = "InternalEnergy"
+
+	def limit_solution(self, solver, Uc):
+		# Unpack
+		physics = solver.physics
+		basis = solver.basis
+
+		djac = self.djac_elems
+
+		# Interpolate state at quadrature points over element and on faces
+		U_elem_faces = helpers.evaluate_state(Uc, self.basis_val_elem_faces,
+				skip_interp=basis.skip_interp)
+		nq_elem = self.quad_wts_elem.shape[0]
+		U_elem = U_elem_faces[:, :nq_elem, :]
+
+		# Average value of state
+		U_bar = helpers.get_element_mean(U_elem, self.quad_wts_elem, djac,
+				self.elem_vols)
+
+		# Density and energy from averaged state
+		srhoi = physics.get_state_slice(self.var_name1)
+		rhoi_bar = physics.compute_variable(self.var_name1, U_bar)
+
+		# srhoE = physics.get_state_slice(self.var_name2)
+		rhoE_bar = physics.compute_variable(self.var_name2, U_bar)
+
+		if np.any(rhoE_bar < 0.) or np.any(rhoi_bar < 0.):
+			raise errors.NotPhysicalError
+
+		# Ignore divide-by-zero
+		np.seterr(divide='ignore')
+
+		''' Limit partial densities '''
+		# Compute partial densities
+		rhoi_elem_faces = physics.compute_variable(self.var_name1, U_elem_faces)
+		theta1 = np.abs((rhoi_bar-POS_TOL)/(rhoi_bar-rhoi_elem_faces))
+		# Truncate theta2; otherwise, can get noticeably different
+		# results across machines, possibly due to poor conditioning in its
+		# calculation
+		theta1 = trunc(np.minimum(1., np.min(theta1, axis=1, keepdims=True)))
+
+		# Get IDs of elements that need limiting
+		elem_IDs = np.unique(np.where(theta1 < 1.)[0])
+		# Modify density coefficients
 		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
-			Uc[elem_IDs] = np.einsum('im, ijk -> ijk', theta3[elem_IDs],
-					Uc[elem_IDs]) + np.einsum('im, ijk -> ijk', 1. - theta3[
-					elem_IDs], U_bar[elem_IDs])
+			Uc[elem_IDs, :, srhoi] = theta1[elem_IDs]*Uc[elem_IDs, :,
+					srhoi] + (1. - theta1[elem_IDs])*rhoi_bar[elem_IDs]
 		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
-			Uc[elem_IDs] *= np.expand_dims(theta3[elem_IDs], axis=2)
-			Uc[elem_IDs, 0] += np.einsum('im, ijk -> ik', 1. - theta3[
-					elem_IDs], U_bar[elem_IDs])
+			Uc[elem_IDs, :, srhoi] *= theta1[elem_IDs]
+			Uc[elem_IDs, 0, srhoi] += (1. - theta1[elem_IDs])*rhoi_bar[elem_IDs]
 		else:
 			raise NotImplementedError
+
+		if np.any(theta1 < 1.):
+			U_elem_faces = helpers.evaluate_state(Uc,
+					self.basis_val_elem_faces,
+					skip_interp=basis.skip_interp)
+
+		''' Limit energies '''
+		# Compute energies
+		rhoE_elem_faces = physics.compute_variable(self.var_name2, U_elem_faces)
+		theta2 = np.abs((rhoE_bar-POS_TOL)/(rhoE_bar-rhoE_elem_faces))
+		# Truncate theta2; otherwise, can get noticeably different
+		# results across machines, possibly due to poor conditioning in its
+		# calculation
+		theta2 = trunc(np.minimum(1., np.min(theta2, axis=1, keepdims=True)))
+
+		# Get IDs of elements that need limiting
+		elem_IDs = np.unique(np.where(theta2 < 1.)[0])
+		# Modify density coefficients
+		if basis.MODAL_OR_NODAL == general.ModalOrNodal.Nodal:
+			# Uc[elem_IDs, :, srhoE] = theta2[elem_IDs]*Uc[elem_IDs, :,
+			# 		srhoE] + (1. - theta2[elem_IDs])*rhoE_bar[elem_IDs]
+			Uc[elem_IDs] = (theta2[elem_IDs]*Uc[elem_IDs] +
+				      (1. - theta2[elem_IDs])*U_bar[elem_IDs])
+		elif basis.MODAL_OR_NODAL == general.ModalOrNodal.Modal:
+			# Uc[elem_IDs, :, srhoE] *= theta2[elem_IDs]
+			# Uc[elem_IDs, 0, srhoE] += (1. - theta2[elem_IDs])*rhoE_bar[elem_IDs]
+			Uc[elem_IDs] *= theta2[elem_IDs]
+			Uc[elem_IDs, 0, :] += (1. - theta2[elem_IDs, 0, :])*U_bar[elem_IDs, 0, :]
+		else:
+			raise NotImplementedError
+
+		if np.any(theta2 < 1.):
+			U_elem_faces = helpers.evaluate_state(Uc,
+					self.basis_val_elem_faces,
+					skip_interp=basis.skip_interp)
 
 		np.seterr(divide='warn')
 
