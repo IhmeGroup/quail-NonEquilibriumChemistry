@@ -21,12 +21,15 @@
 #
 # ------------------------------------------------------------------------ #
 import numpy as np
+import scipy
+from scipy import optimize
 import sys
 
 import general
 import numerics.basis.tools as basis_tools
 import numerics.helpers.helpers as helpers
 import solver.tools as solver_tools
+import numerics.limiting.tools as limiter_tools
 
 
 def set_function_definitions(solver, params):
@@ -155,6 +158,224 @@ def calculate_source_term_integral(elem_helpers, Sq):
 	res_elem = np.einsum('jn, ijk -> ink', basis_val, Sq_quad) # [ne, nb, ns]
 
 	return res_elem # [ne, nb, ns]
+
+
+def initialize_artificial_viscosity(solver):
+	'''
+	Initializes a solver subroutine for AV smoothing. Uses the same mesh and basis
+	functions for approximating a solution as the larger flow solver. Used to solve 
+	the AV elliptic PDE-smoothing equation given by Eric Ching:
+		Eric J. Ching, Yu Lv, Peter Gnoffo, Michael Barnhardt, Matthias Ihme, Shock 
+		capturing for discontinuous Galerkin methods with application to predicting 
+		heat transfer in hypersonic flows, Journal of Computational Physics.
+	Inputs:
+	-------
+		solver: solver object
+	Outputs:
+	--------
+		av_solver: solver initialized for the AV pde-smoothing equation
+	'''
+	# Initialize AV-smoothing physics and solver
+	import defaultparams as default_deck
+	import physics.scalar.scalar as scalar
+	import physics.navierstokes.navierstokes as navierstokes
+	import solver.DG as DG
+
+	# AV is only defined for Navier Stokes flow physics
+	if not isinstance(solver.physics, navierstokes.NavierStokes2D):
+		raise NotImplementedError
+
+	# Extract mesh
+	mesh = solver.mesh
+	# Create physics object (using scalar diffusive physics)
+	av_physics = scalar.ConstAdvDiffScalar2D()
+	av_physics.set_conv_num_flux("LaxFriedrichs")
+	av_physics.set_diff_num_flux("SIP")
+	pparams = {"ConstXVelocity": 0., "ConstYVelocity": 0., 
+		"DiffCoefficientX": (1/24)**2, "DiffCoefficientY": (1/24)**2}
+	av_physics.set_physical_params(**pparams)
+	# Initial condition (empty AV field)
+	iparams = {"state": [0]}
+	av_physics.set_IC(IC_type="Uniform", **iparams)
+	# Boundary conditions (dirichlet along body, Neumann along other boundaries)
+	av_physics.BCs = dict.fromkeys(mesh.boundary_groups.keys())
+	av_physics.set_BC("inflow", "Extrapolate")
+	av_physics.set_BC("outflow", "Extrapolate")
+	av_physics.set_BC("body", "StateAll", "Uniform", **{"state": [0]})
+	
+	# Numerics parameters (same as larger flow solver)
+	numerics_params = default_deck.Numerics.copy()
+	numerics_params["SolutionOrder"] = solver.order
+	numerics_params["SolutionBasis"] = type(solver.basis).__name__
+	# Timestepping parameters (default, not used)
+	stepper_params = default_deck.TimeStepping.copy()
+	# Output parameters (default, not used)
+	output_params = default_deck.Output.copy()
+	solver_params = {**stepper_params, **numerics_params, **output_params}
+	solver_params["RestartFile"] = None
+	# Create solver object
+	av_solver = DG.DG(solver_params, av_physics, mesh)
+
+	return av_solver
+
+
+def calculate_artificial_viscosity(solver, mesh, shock_indicator=None, av_param=None):
+	'''
+	Calculates the basis function coefficients approximating the AV field across the
+	flow domain. Uses the shock detector, Riemannian metric tensor, and PDE-smoothing
+	equation given by Eric Ching:
+		Eric J. Ching, Yu Lv, Peter Gnoffo, Michael Barnhardt, Matthias Ihme, Shock 
+		capturing for discontinuous Galerkin methods with application to predicting 
+		heat transfer in hypersonic flows, Journal of Computational Physics.
+	Inputs:
+	-------
+		solver: solver object
+		mesh: mesh object
+		shock_indicator: the shock-indicator to be used for element evaluation
+		av_param: av constant term
+	Outputs:
+	--------
+		avc: basis function coefficients that approximate the smooth AV field
+	'''
+	# Unpack
+	physics = solver.physics
+	elem_helpers = solver.elem_helpers
+	basis_val = elem_helpers.basis_val
+	basis_phys_grad_elems = elem_helpers.basis_phys_grad_elems
+	quad_pts = elem_helpers.quad_pts
+	quad_wts = elem_helpers.quad_wts
+	iMM_elems = elem_helpers.iMM_elems
+	djacs = elem_helpers.djac_elems
+	vols = elem_helpers.vol_elems
+
+	# Set defaults if not provided
+	p = solver.order
+	if shock_indicator is None:
+		shock_indicator = limiter_tools.ejc_shock_indicator
+	if av_param is None:
+		av_param = 0.25
+
+	# Shock detection
+	Uq = helpers.evaluate_state(solver.state_coeffs, basis_val)
+	shock_elems = shock_indicator(physics, elem_helpers, Uq)
+	# Mesh metric
+	Nd = mesh.ndims; Nu = Nd+2
+	h_bar = mesh.length_scale
+	# Calculate max wavespeed
+	U_bar = helpers.get_element_mean(Uq, quad_wts, djacs, vols)
+	a_max = physics.compute_variable("MaxWaveSpeed", U_bar).reshape(-1)
+
+	# Compute elementwise-AV
+	av0 = av_param*a_max*h_bar/np.maximum(1, p)*shock_elems
+	# Extend to quadrature points
+	nq = quad_wts.shape[0]
+	av0 = np.expand_dims(av0, axis=(1, 2))
+	av0 = np.repeat(av0, nq, axis=1)
+
+	# Convert to coefficients (elementwise-constant solution only)
+	# av0c = np.zeros_like(solver.av_solver.state_coeffs)
+	# solver_tools.L2_projection(mesh, iMM_elems, solver.basis,
+	# 	quad_pts, quad_wts, av0, av0c)
+	# solver.av_solver.state_coeffs = av0c
+	# return av0c
+
+	# Update AV-smoothing solver
+	av_solver = solver.av_solver
+	av_physics = av_solver.physics
+	sparams = {"eta_0": av0}
+	av_physics.set_source(source_type="ArtificialViscosity", **sparams)
+	# Make initial coefficients guess from prior solution
+	avc = av_solver.state_coeffs
+	# Solve the nonlinear PDE system to get the new smooth AV solution
+	res = np.zeros_like(avc)
+	def av_res(U, av_solver, res):
+		dt = 1
+		U = U.reshape(res.shape)
+		res = av_solver.get_residual(U, res)
+		dU = solver_tools.mult_inv_mass_matrix(mesh, av_solver, dt, res)
+
+		# Return residual
+		av_res = dU-U
+		return av_res.reshape(-1)
+
+	sol = scipy.optimize.root(av_res, avc, args=(av_solver, res), method='krylov')
+	avc = sol.x.reshape(res.shape)
+
+	# Evaluate AV at quadrature points
+	av = helpers.evaluate_state(avc, solver.elem_helpers.basis_val)
+	# Create filter bounds
+	av_max_elems = np.max(av, axis=1).reshape(-1)
+	S_high = np.maximum(av_max_elems, a_max*h_bar/np.maximum(1, p))
+	S_low = 0.01*S_high
+	# Extend to quadrature points
+	S_high = np.expand_dims(S_high, axis=(1, 2)); S_high = np.repeat(S_high, nq, axis=1)
+	S_low = np.expand_dims(S_low, axis=(1, 2)); S_low = np.repeat(S_low, nq, axis=1)
+	# Filter smoothed AV
+	av_low = av < S_low
+	av[av_low] = 0
+	av_high = av > S_high
+	av[av_high] = 0.5*S_high[av_high] * (1+np.sin( np.pi/2*(2*av[av_high]-(S_high[av_high]+S_low[av_high]))/(S_high[av_high]-S_low[av_high]) ))
+
+	# Project onto the basis state from the final quadrature point values
+	solver_tools.L2_projection(mesh, iMM_elems, solver.basis,
+		quad_pts, quad_wts, av, avc)
+	av_solver.state_coeffs = avc
+
+	return avc
+
+
+def calculate_artificial_viscosity_flux(mesh, physics, Uq, gUq, av, IDs=None):
+	'''
+	Calculates artificial viscosity flux given by Eric Ching:
+		Eric J. Ching, Yu Lv, Peter Gnoffo, Michael Barnhardt, Matthias Ihme, Shock 
+		capturing for discontinuous Galerkin methods with application to predicting 
+		heat transfer in hypersonic flows, Journal of Computational Physics.
+	Inputs:
+	-------
+		mesh: mesh object
+		physics: physics object
+		Uq: flow state evaluated at points
+		gUq: state gradient evaluated at points
+		av: artificial viscosity field evaluated at points
+		IDs: the node IDs used for the current residual term
+	Outputs:
+	--------
+		F: the artificial viscosity flux
+	'''
+	# Extract
+	ne, nq, ns = Uq.shape
+	nd = mesh.ndims
+	if IDs is None:
+		IDs = np.arange(mesh.num_elems)
+
+	# Mesh metric
+	h = mesh.inv_metric_tensor[IDs]
+	h_bar = mesh.length_scale[IDs]
+
+	# Extend dimensions
+	h = np.expand_dims(h, axis=(1, 2))
+	h_bar = np.expand_dims(h_bar, axis=(1, 2))
+
+	# Apply enthalpy-preservation correction to gradient
+	srhoE = physics.get_state_slice("Energy")
+	dP = physics.compute_pressure_gradient(Uq, gUq)
+	dP = dP[:, :, np.newaxis, :]
+	gUq[:, :, srhoE, :] += dP
+	
+	# Compute AV flux
+	F = np.empty(Uq.shape + (nd,)) # [n, nq, ns, ndims]
+	gUx = gUq[:, :, :, 0]
+	gUy = gUq[:, :, :, 1]
+	h11 = h[:, :, :, 0, 0]
+	h12 = h[:, :, :, 0, 1]
+	h21 = h[:, :, :, 1, 0]
+	h22 = h[:, :, :, 1, 1]
+
+	F[:, :, :, 0] = av/h_bar * (h11*gUx + h12*gUy)
+	F[:, :, :, 1] = av/h_bar * (h21*gUx + h22*gUy)
+
+	return F # [ne, nq, ns, ndims]
+
 
 def calculate_artificial_viscosity_integral(physics, elem_helpers, Uc, av_param, p):
 	'''

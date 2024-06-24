@@ -102,6 +102,7 @@ class ShockIndicatorType(Enum):
 	'''
 	MinMod = auto()
 		# Uses a TVB modified minmod to tag troubled elements.
+	EJC = auto()
 	
 
 class SolverType(Enum):

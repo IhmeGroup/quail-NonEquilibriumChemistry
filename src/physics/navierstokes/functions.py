@@ -474,12 +474,13 @@ class IsothermalWall(BCWeakPrescribed):
 	details.
 	'''
 	def __init__(self, twall):
+
 		'''
 		This method initializes the attributes.
 
 		Inputs:
 		-------
-			twall: wall temperature
+		    twall: wall temperature
 
 		Outputs:
 		--------

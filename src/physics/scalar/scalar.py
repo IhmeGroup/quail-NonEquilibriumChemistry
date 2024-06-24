@@ -33,6 +33,7 @@ from physics.base.functions import BCType as base_BC_type
 from physics.base.functions import FcnType as base_fcn_type
 from physics.base.functions import ConvNumFluxType as base_conv_num_flux_type
 from physics.base.functions import DiffNumFluxType as base_diff_num_flux_type
+from physics.base.functions import SourceType as base_source_type
 
 import physics.base.functions as base_fcns
 import physics.scalar.functions as scalar_fcns
@@ -231,6 +232,11 @@ class ConstAdvDiffScalar(base.PhysicsBase):
 
 	def set_maps(self):
 		super().set_maps()
+
+		self.source_map.update({
+			base_source_type.ArtificialViscosity : 
+				base_fcns.ArtificialViscosity,
+		})
 
 		self.diff_num_flux_map.update({
 			base_diff_num_flux_type.SIP : 

@@ -97,6 +97,7 @@ def get_sutherland_transport(physics, Uq, flag_non_physical=None):
 	Pr = physics.Pr
 	gamma = physics.gamma
 	R = physics.R
+	mu0 = physics.mu0
 	s = physics.s
 	T0 = physics.T0
 	beta = physics.beta

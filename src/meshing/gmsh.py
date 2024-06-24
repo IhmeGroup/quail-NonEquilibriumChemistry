@@ -1348,6 +1348,9 @@ def fill_mesh(fo, ver, mesh, phys_groups, num_phys_groups,
 	# Create elements
 	mesh.create_elements()
 
+	# Create metric tensor
+	mesh.create_metric_tensor()
+
 
 def import_gmsh_mesh(file_name):
 	'''

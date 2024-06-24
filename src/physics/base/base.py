@@ -596,7 +596,7 @@ class PhysicsBase(ABC):
 
 		return Fnum
 
-	def get_diff_flux_numerical(self, UqL, UqR, gUqL, gUqR, normals):
+	def get_diff_flux_numerical(self, solver, UqL, UqR, gUqL, gUqR, normals):
 		'''
 		This method computes the diffusive numerical flux.
 
@@ -622,7 +622,7 @@ class PhysicsBase(ABC):
 		'''
 		if self.diff_flux_fcn:
 			# Compute the diffusion fluxes
-			Fnum, FL, FR = self.diff_flux_fcn.compute_flux(self, UqL, UqR, 
+			Fnum, FL, FR = self.diff_flux_fcn.compute_flux(self, solver, UqL, UqR, 
 					gUqL, gUqR, normals)
 
 			return Fnum, FL, FR # [nf, nq, ns], [nf, nq, ns, ndim], 
@@ -630,7 +630,7 @@ class PhysicsBase(ABC):
 		else:
 			return 0., 0., 0. # Return zeros when diffusion fluxes not needed
 
-	def get_diff_boundary_flux_numerical(self, UqI, UqB, gUq, normals):
+	def get_diff_boundary_flux_numerical(self, solver, UqI, UqB, gUq, normals):
 		'''
 		This method computes the diffusive numerical flux at a boundary state.
 
@@ -650,7 +650,7 @@ class PhysicsBase(ABC):
 			FB: directional numerical flux values at boundary
 				[nf, nq, ns, ndims]
 		'''
-		Fnum, FB = self.diff_flux_fcn.compute_boundary_flux(self, UqI, UqB, gUq,
+		Fnum, FB = self.diff_flux_fcn.compute_boundary_flux(self, solver, UqI, UqB, gUq,
 				normals)
 
 		return Fnum, FB # [nf, nq, ns, ndim], [nf, nq, nb, ndim], 

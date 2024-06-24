@@ -59,7 +59,7 @@ def set_limiter(limiter_type, physics_type):
 
 	return limiter
 
-def set_shock_indicator(limiter, shock_indicator_type):
+def set_shock_indicator(shock_indicator_type):
 	'''
 	This function sets the appropriate shock indicator.
 
@@ -71,7 +71,61 @@ def set_shock_indicator(limiter, shock_indicator_type):
 		return None
 	elif general.ShockIndicatorType[shock_indicator_type] is \
 			general.ShockIndicatorType.MinMod:
-		limiter.shock_indicator = minmod_shock_indicator
+		indicator = minmod_shock_indicator
+	elif general.ShockIndicatorType[shock_indicator_type] is \
+			general.ShockIndicatorType.EJC:
+		indicator = ejc_shock_indicator
+	else:
+		raise NotImplementedError
+
+	return indicator
+
+def ejc_shock_indicator(physics, elem_helpers, Uq):
+	'''
+	Shock indicator function described by Eric Ching:
+		Eric J. Ching, Yu Lv, Peter Gnoffo, Michael Barnhardt, Matthias Ihme, Shock 
+		capturing for discontinuous Galerkin methods with application to predicting 
+		heat transfer in hypersonic flows, Journal of Computational Physics.
+	Inputs:
+	-------
+		physics: physics object
+		elem_helpers: element helper object
+		Uq: flow state evaluated at points
+
+	Outputs:
+	--------
+		shock_elems: array with shock detection measure for each element
+	'''
+	# Unpack
+	quad_wts = elem_helpers.quad_wts # [nq, 1]
+	basis_val = elem_helpers.basis_val # [nq, nb]
+	djacs = elem_helpers.djac_elems # [ne, nq, 1]
+	vols = elem_helpers.vol_elems # [ne]
+
+	# Average value of states
+	U_bar = helpers.get_element_mean(Uq, quad_wts, djacs, vols)
+
+	# Obtain pressure from state
+	P_elem = physics.compute_variable("Pressure", Uq)
+	P_bar = physics.compute_variable("Pressure", U_bar)
+
+	# Compute sensor values
+	integrand = np.square(P_elem/P_bar-1)
+	sint = np.einsum('ijm, jm, ijm -> i', integrand, quad_wts, djacs)
+	Se = np.sqrt(sint/vols)
+
+	# Filter sensor
+	Sthresh = 0.125
+	dS = 0.025
+	Se_low = Se < Sthresh - dS
+	Se_high = Se > Sthresh + dS
+
+	Se[Se_low] = 0
+	# Se[Se_high] = 1/2*Se[Se_high] * (1 + np.sin( np.pi/(2*dS)*(Se[Se_high]-Sthresh) ))
+
+	shock_elems = Se
+
+	return shock_elems
 		
 
 def minmod_shock_indicator(limiter, solver, Uc):
