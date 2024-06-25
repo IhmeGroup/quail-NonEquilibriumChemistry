@@ -22,6 +22,7 @@
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
 import numpy as np
+from quail.general import ThermoType
 from quail.external.optional_cantera import ct
 from quail.external.optional_mutationpp import mpp
 
@@ -50,6 +51,14 @@ class ThermoBase(ABC):
     def NUM_ENERGY(self):
         '''
         Number of energies
+        '''
+        pass
+
+    @property
+    @abstractmethod
+    def THERMO_TYPE(self):
+        '''
+        Thermodynamic model type (general.ThermoType enum member)
         '''
         pass
 
@@ -170,6 +179,7 @@ class CaloricallyPerfectGas(ThermoBase):
     '''
     NUM_SPECIES = 1
     NUM_ENERGY = 1
+    THERMO_TYPE = ThermoType.CaloricallyPerfectGas
 
     def __init__(self, GasConstant=287.0, SpecificHeatRatio=1.4, **kwargs):
         super().__init__(GasConstant=GasConstant,
@@ -248,6 +258,7 @@ class CanteraThermo(ThermoBase):
     Interface to Cantera to compute transport properties.
     '''
     NUM_ENERGY = 1
+    THERMO_TYPE = ThermoType.Cantera
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -262,6 +273,7 @@ class CanteraThermo(ThermoBase):
 
     def __init__(self, Mechanism='air.yaml', OffsetEnergy=True, **kwargs):
         super().__init__(Mechanism=Mechanism, OffsetEnergy=OffsetEnergy)
+        self.OffsetEnergy = OffsetEnergy
         self.Ru = ct.gas_constant
 
         # Initialize the gas phase
@@ -270,73 +282,48 @@ class CanteraThermo(ThermoBase):
         self.species_names = self.gas.species_names
         self.default_Y = self.gas.Y
 
-        if OffsetEnergy:
-            # Subtract off the reference internal energies from the
-            # thermodynamic polynomial coefficients
-            eref = self.gas.standard_int_energies_RT
+        if self.OffsetEnergy:
+            # Store the reference internal energies which bound the minimum
+            # temperature for the reference pressure
             Tref = self.gas.min_temp
-            for isp, sp in enumerate(self.gas.species()):
-                data = sp.thermo.input_data
-                coeffs = np.array(data['data'])
-                Tranges = data['temperature-ranges']
-                Tmin = Tranges[0]
-                Tmax = Tranges[-1]
-                pref = sp.thermo.reference_pressure
-
-                if data['model'] == 'NASA7':
-                    coeffs = np.concatenate([[Tranges[1]], coeffs.flatten()])
-                    coeffs[[6, 13]] -= eref[isp]*Tref
-
-                    sp.thermo = ct.NasaPoly2(Tmin, Tmax, pref, coeffs)
-                elif data['model'] == 'NASA9':
-                    nzone = len(Tranges)-1
-                    coeff_nasa9 = np.zeros((11*nzone + 1,))
-                    coeff_nasa9[0] = nzone
-                    for i in range(nzone):
-                        o = 11*nzone
-                        coeff_nasa9[1+o] = Tranges[i]
-                        coeff_nasa9[2+o] = Tranges[i+1]
-                        coeffs[i, 7] -= eref[isp]*Tref
-                        coeff_nasa9[3+o:11+o] = coeffs[i, :]
-
-                    sp.thermo = ct.Nasa9PolyMultiTempRegion(Tmin, Tmax, pref, coeff_nasa9)
-                else:
-                    raise NotImplementedError("Cannot apply energy offset to Cantera" +
-                                              " thermodynamic type %s" % data['model'])
-
-            # Reinitialize the Solution object with the new species data
-            self.gas = ct.Solution(thermo=self.gas.thermo_model, species=self.gas.species(),
-                                   kinetics=self.gas.kinetics_model, reactions=self.gas.reactions())
+            self.gas.TP = Tref, self.gas.reference_pressure
+            self.eref = (self.gas.partial_molar_int_energies / self.gas.molecular_weights)[None, None, :]
 
         self.solution = None
 
     @property
     def R(self):
-        return self.Ru / self.solution.mean_molecular_weight
+        return self.Ru / np.atleast_3d(self.solution.mean_molecular_weight)
 
     @property
     def T(self):
-        return self.solution.T[..., None]
+        return np.atleast_3d(self.solution.T)
 
     @property
     def p(self):
-        return self.solution.P[..., None]
+        return np.atleast_3d(self.solution.P)
 
     @property
     def rho(self):
-        return self.solution.density_mass[..., None]
+        return np.atleast_3d(self.solution.density_mass)
+
+    @property
+    def e0(self):
+        if self.OffsetEnergy:
+            return np.sum(self.Y * self.eref, axis=-1, keepdims=True)
+        return 0.0
 
     @property
     def e(self):
-        return self.solution.int_energy_mass[..., None]
+        return np.atleast_3d(self.solution.int_energy_mass) - self.e0
 
     @property
     def h(self):
-        return self.solution.enthalpy_mass[..., None]
+        return np.atleast_3d(self.solution.enthalpy_mass) - self.e0
 
     @property
     def s(self):
-        return self.solution.entropy_mass[..., None]
+        return np.atleast_3d(self.solution.entropy_mass)
 
     @property
     def c(self):
@@ -348,11 +335,11 @@ class CanteraThermo(ThermoBase):
 
     @property
     def cv(self):
-        return self.solution.cv[..., None]
+        return np.atleast_3d(self.solution.cv)
 
     @property
     def cp(self):
-        return self.solution.cp[..., None]
+        return np.atleast_3d(self.solution.cp)
 
     @property
     def gamma(self):
@@ -377,7 +364,13 @@ class CanteraThermo(ThermoBase):
 
     def set_state_from_Y_T_p(self, Y, T, p):
         # Create a SolutionArray to handle the thermodynamic computations
-        self.solution = ct.SolutionArray(self.gas, shape=T.shape[:2])
+        if hasattr(T, 'shape'):
+            shape = T.shape
+            p = np.broadcast_to(p, shape)
+        elif hasattr(p, 'shape'):
+            shape = p.shape
+            T = np.broadcast_to(T, shape)
+        self.solution = ct.SolutionArray(self.gas, shape=shape[:2])
 
         self.solution.TPY = T[..., 0], p[..., 0], Y
 
@@ -389,5 +382,9 @@ class CanteraThermo(ThermoBase):
         rho = rhoi.sum(axis=2, keepdims=True)
         v = 1.0 / rho
         Y = rhoi * v
+
+        # Add reference energy if needed
+        if self.OffsetEnergy:
+            e += np.sum(Y * self.eref, axis=-1, keepdims=True)
 
         self.solution.UVY = e[..., 0], v[..., 0], Y
