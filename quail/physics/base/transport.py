@@ -124,10 +124,11 @@ class CanteraTransport(TransportBase):
     '''
     Interface to Cantera to compute transport properties.
     '''
-    def __init__(self, Mechanism='air.yaml', **kwargs):
+    def __init__(self, Mechanism='air.yaml', ThermoModel='NotNeeded', **kwargs):
         super().__init__(**kwargs)
-        self.gas = ct.Solution(Mechanism)
-        self._cached_e = None
+        if ThermoModel != 'Cantera':
+            self.gas = ct.Solution(Mechanism)
+        self._cached_T = None
         self._cached_solution = None
 
     def get_solution(self, thermo):
@@ -138,14 +139,14 @@ class CanteraTransport(TransportBase):
 
         # Otherwise we must create it, but first check if we have
         # already done so by comparing a cached copy of the energy:
-        if self._cached_e is thermo.e:
+        if self._cached_T is thermo.T:
             return self._cached_solution
 
         # Otherwise create a fresh solution and cache it:
-        solution = ct.Solution(self.gas, thermo.e.shape)
-        solution.UVY = thermo.e, 1.0/thermo.rho, thermo.Y
+        solution = ct.Solution(self.gas, thermo.T.shape)
+        solution.TDY = thermo.T, thermo.rho, thermo.Y
 
-        self._cached_e = thermo.e
+        self._cached_T = thermo.T
         self._cached_solution = solution
 
         return solution
@@ -153,12 +154,12 @@ class CanteraTransport(TransportBase):
     def get_viscosity(self, thermo):
         solution = self.get_solution(thermo)
 
-        return solution.viscosity
+        return np.atleast_3d(solution.viscosity)
 
     def get_thermal_conductivity(self, thermo):
         solution = self.get_solution(thermo)
 
-        return solution.thermal_conductivity
+        return np.atleast_3d(solution.thermal_conductivity)
 
     def get_diffusion_coefficients(self, thermo):
         solution = self.get_solution(thermo)
