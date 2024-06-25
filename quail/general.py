@@ -127,7 +127,11 @@ class StepperType(Enum):
 	LSRK4 = auto()
 		# Low-storage 4th-order Runge-Kutta
 	SSPRK3 = auto()
-		# Strong stability-preserving third-order Runge-Kutta
+		# 3-stage Strong stability-preserving third-order Runge-Kutta
+	SSPRK3_4S = auto()
+		# 4-stage strong stability-preserving third-order Runge-Kutta
+	LSSSPRK3 = auto()
+		# 5-stage low-storage strong stability-preserving third-order Runge-Kutta
 	ADER = auto()
 		# ADER
 	Strang = auto()
