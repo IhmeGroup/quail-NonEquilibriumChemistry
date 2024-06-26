@@ -362,6 +362,15 @@ class CanteraThermo(ThermoBase):
 
         self.solution.DPY = rho[..., 0], p[..., 0], Y
 
+    def set_state_from_rhoi_T(self, rhoi, T):
+        # Create a SolutionArray to handle the thermodynamic computations
+        self.solution = ct.SolutionArray(self.gas, shape=T.shape[:2])
+
+        rho = rhoi.sum(axis=2, keepdims=True)
+        Y = rhoi / rho
+
+        self.solution.TDY = T[..., 0], rho[..., 0], Y
+
     def set_state_from_Y_T_p(self, Y, T, p):
         # Create a SolutionArray to handle the thermodynamic computations
         if hasattr(T, 'shape'):
@@ -388,3 +397,179 @@ class CanteraThermo(ThermoBase):
             e += np.sum(Y * self.eref, axis=-1, keepdims=True)
 
         self.solution.UVY = e[..., 0], v[..., 0], Y
+
+
+class MutationppThermo(ThermoBase):
+    '''
+    Interface to Cantera to compute transport properties.
+    '''
+    NUM_ENERGY = 1
+    THERMO_TYPE = ThermoType.Mutationpp
+
+    # Map attribute names to corresponding Mutation++ attributes
+    _mixture_properties_map = {
+        'Wm': 'mixtureMw',
+        'Tr': 'Tr',
+        'Tv': 'Tv',
+        'Te': 'Te',
+        'Tel': 'Tel',
+        'rho': 'density',
+        'internal_energy': 'mixtureEnergyMass',
+        'internal_enthalpy': 'mixtureHMass',
+        's': 'mixtureSMass',
+        'drhodp': 'dRhodP',
+        'cp': 'mixtureFrozenCpMass',
+        'cv': 'mixtureFrozenCvMass',
+        'gamma': 'mixtureFrozenGamma',
+        'c': 'frozenSoundSpeed',
+        'kappa': 'frozenThermalConductivity',
+        'mu': 'viscosity',
+    }
+    _species_properties_map = {
+        'X': 'X',
+        'rhoi': 'densities',
+        'dXdp': 'dXidP',
+        'dXdT': 'dXidT',
+        'diff': 'averageDiffusionCoeffs',
+        'net_production_rates': 'netProductionRates',
+    }
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Workaround because Mutation++ objects cannot be pickled
+        state.pop("options", None)
+        state.pop("gas", None)
+        return state
+
+    @property
+    def NUM_ENERGY(self):
+        return self.gas.nEnergyEqns()
+
+    @property
+    def NUM_SPECIES(self):
+        return self.gas.nSpecies()
+
+    def __init__(self, Mechanism='air_5.xml', OffsetEnergy=True,
+                 ThermoDB="NASA-9", StateModel="ChemNonEq1T",
+                 XDefault={'O2': 0.21, 'N2': 0.79}, **kwargs):
+        super().__init__(Mechanism=Mechanism, OffsetEnergy=OffsetEnergy)
+        self.OffsetEnergy = OffsetEnergy
+
+        KB = 1.3806503E-23
+        NA = 6.0221415E23
+        self.Ru = NA * KB  # Can we get this from Mutation++?
+
+        # Set up the Mutation++ models
+        self.options = mpp.MixtureOptions(Mechanism)
+        self.options.setThermodynamicDatabase(ThermoDB)
+        self.options.setStateModel(StateModel)
+        self.gas = mpp.Mixture(self.options)
+
+        self.species_names = []
+        self.W = self.gas.speciesMw()
+        for isp in range(self.NUM_SPECIES):
+            self.species_names += [self.gas.speciesName(isp)]
+
+        if XDefault is not None:
+            Wmix = 0.0
+            Y = np.zeros((self.NUM_SPECIES,))
+            for sp, X in XDefault.items():
+                isp = self.species_names.index(sp)
+                Y[isp] = X*self.W[isp]
+                Wmix += Y[isp]
+            Y /= Wmix
+            self.default_Y = Y
+        else:
+            self.default_Y = np.zeros((self.NUM_SPECIES,))
+            self.default_Y[0] = 1.0
+
+        if self.OffsetEnergy:
+            # Store the reference internal energies which bound the minimum
+            # temperature for the reference pressure
+            Tref = 200.0  #self.gas.standardStateT()
+            Pref = self.gas.standardStateP()
+            self.gas.setState(self.default_Y, np.array([Pref, Tref]), 2)
+            href = self.gas.speciesHOverRT() * self.Ru * Tref / self.W
+            self.eref = (href - Pref / self.gas.density())[None, None, :]
+
+    # Create a vectorized converter from conservative to primitive variables
+    def get_pT(self, rhoi, rhoe):
+        self.gas.setState(rhoi, rhoe, 0)
+        return np.array([self.gas.P(), self.gas.T()])
+
+    _conservative_to_primitive = np.vectorize(get_pT, otypes=[float],
+                                              signature='(),(m),(n)->(2)')
+
+    @np.vectorize(otypes=[float], signature='(),(m),(2),()->()')
+    def get_property_scalar(self, Y, pT, property):
+        self.gas.setState(Y, pT, 2)
+        return self.gas.__getattribute__(property)()
+
+    @np.vectorize(otypes=[float], signature='(),(m),(2),()->(m)')
+    def get_property_vector(self, Y, pT, property):
+        self.gas.setState(Y, pT, 2)
+        return self.gas.__getattribute__(property)()
+
+    def __getattribute__(self, name):
+        if name[0] != '_':
+            if name in self._species_properties_map.keys():
+                return self.get_property_vector(self, self.Y, self.pT,
+                                                self._species_properties_map[name])
+            elif name in self._mixture_properties_map.keys():
+                return self.get_property_scalar(self, self.Y, self.pT,
+                                                self._mixture_properties_map[name])[..., None]
+        return super().__getattribute__(name)
+
+    @property
+    def R(self):
+        return self.Ru / self.Wm
+
+    @property
+    def T(self):
+        return self.pT[..., [1]]
+
+    @property
+    def p(self):
+        return self.pT[..., [0]]
+
+    @property
+    def e0(self):
+        if self.OffsetEnergy:
+            return np.sum(self.Y * self.eref, axis=2, keepdims=True)
+        return 0.0
+
+    @property
+    def e(self):
+        return self.internal_energy - self.e0
+
+    @property
+    def h(self):
+        return self.internal_enthalpy - self.e0
+
+    @property
+    def dpdrho(self):
+        return 1.0 / self.drhodp
+
+    def set_state_from_rhoi_p(self, rhoi, p):
+        self.Y = rhoi / np.sum(rhoi, axis=2, keepdims=True)
+        T = p / (np.sum(rhoi / self.W[None, None, :], axis=2, keepdims=True) * self.Ru)
+        self.pT = np.concatenate([p, T], axis=2)
+
+    def set_state_from_rhoi_T(self, rhoi, T):
+        self.Y = rhoi / np.sum(rhoi, axis=2, keepdims=True)
+        p = np.sum(rhoi / self.W[None, None, :], axis=2, keepdims=True) * self.Ru * T
+        self.pT = np.concatenate([p, T], axis=2)
+
+    def set_state_from_Y_T_p(self, Y, T, p):
+        self.Y = Y
+        self.pT = np.concatenate([p, T], axis=2)
+
+    def set_state_from_rhoi_e(self, rhoi, e):
+        rho = np.sum(rhoi, axis=2, keepdims=True)
+        self.Y = rhoi / rho
+
+        # Add reference energy if needed
+        if self.OffsetEnergy:
+            e += np.sum(self.Y * self.eref, axis=2, keepdims=True)
+
+        self.pT = self._conservative_to_primitive(self, rhoi, rho*e)
