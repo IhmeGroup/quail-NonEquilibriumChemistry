@@ -69,8 +69,8 @@ def set_thermo(ThermoModel='NotNeeded', **kwargs):
         return thermo_tools.CaloricallyPerfectGas(**kwargs)
     elif ThermoType[ThermoModel] == ThermoType.Cantera:
         return thermo_tools.CanteraThermo(**kwargs)
-    # elif ThermoType[ThermoModel] == ThermoType.Mutationpp:
-    # 	return thermo_tools.MutationppInterface(**kwargs)
+    elif ThermoType[ThermoModel] == ThermoType.Mutationpp:
+        return thermo_tools.MutationppThermo(**kwargs)
     elif ThermoType[ThermoModel] == ThermoType.NotNeeded:
         return None
     else:
