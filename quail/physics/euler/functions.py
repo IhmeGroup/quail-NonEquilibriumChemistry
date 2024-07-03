@@ -103,12 +103,12 @@ class SmoothIsentropicFlow(FcnBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             a: parameter that controls magnitude of sinusoidal profile
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         if a > 1:
@@ -173,13 +173,13 @@ class MovingShock(FcnBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             M: Mach number
             xshock: initial location of shock
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.M = M
@@ -258,16 +258,16 @@ class IsentropicVortex(FcnBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             rhob: base density
             ub: base x-velocity
             vb: base y-velocity
             pb: base pressure
             vs: vortex strength
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.rhob = rhob
@@ -345,12 +345,12 @@ class DensityWave(FcnBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             p: pressure
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.p = p
@@ -404,8 +404,8 @@ class RiemannProblem(FcnBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             rhoL: left density
             uL: left velocity
             pL: left pressure
@@ -414,8 +414,8 @@ class RiemannProblem(FcnBase):
             pR: right pressure
             xd: location of initial discontinuity
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
 
         Notes:
@@ -584,12 +584,12 @@ class ShuOsherProblem(FcnBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             xshock: initial location of shock
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.xshock = xshock
@@ -723,12 +723,12 @@ class PressureOutlet(BCWeakPrescribed):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             p: pressure
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.p = p
@@ -818,12 +818,12 @@ class StiffFriction(SourceBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             nu: source term parameter
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.nu = nu
@@ -894,12 +894,12 @@ class GravitySource(SourceBase):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
+        Parameters
+        ----------
             gravity: gravity constant
 
-        Outputs:
-        --------
+        Returns
+        -------
             self: attributes initialized
         '''
         self.gravity = gravity
@@ -946,17 +946,17 @@ class LaxFriedrichs(ConvNumFluxBase):
         n_hat = normals/n_mag
 
         # Left flux
-        FqL, (u2L, aL, rhoL, pL) = physics.get_conv_flux_projected(UqL, n_hat)
+        FqL, (uLvec, thermoL) = physics.get_conv_flux_projected(UqL, n_hat)
+        aL = thermoL.c + np.linalg.norm(uLvec, axis=2, keepdims=True)
 
         # Right flux
-        FqR, (u2R, aR, rhoR, pR) = physics.get_conv_flux_projected(UqR, n_hat)
+        FqR, (uRvec, thermoR) = physics.get_conv_flux_projected(UqR, n_hat)
+        aR = thermoR.c + np.linalg.norm(uRvec, axis=2, keepdims=True)
 
         # Jump
         dUq = UqR - UqL
 
         # Max wave speeds at each point
-        aL += np.sqrt(u2L)
-        aR += np.sqrt(u2R)
         idx = aR > aL
         aL[idx] = aR[idx]
 
@@ -966,47 +966,45 @@ class LaxFriedrichs(ConvNumFluxBase):
 
 class Roe1D(ConvNumFluxBase):
     '''
-    1D Roe numerical flux. References:
-        [1] P. L. Roe, "Approximate Riemann solvers, parameter vectors, and
-        difference schemes," Journal of Computational Physics,
-        43(2):357–372, 1981.
-        [2] J. S. Hesthaven, T. Warburton, "Nodal discontinuous Galerkin
-        methods: algorithms, analysis, and applications," Springer Science
-        & Business Media, 2007.
+    Roe numerical flux.
+
+    References
+    ----------
+    [1] P. L. Roe, "Approximate Riemann solvers, parameter vectors, and
+    difference schemes," Journal of Computational Physics,
+    43(2):357-372, 1981.
+    [2] J. S. Hesthaven, T. Warburton, "Nodal discontinuous Galerkin
+    methods: algorithms, analysis, and applications," Springer Science
+    & Business Media, 2007.
 
     Attributes:
     -----------
-    UqL: numpy array
-        helper array for left state [nf, nq, ns]
-    UqR: numpy array
-        helper array for right state [nf, nq, ns]
-    vel: numpy array
-        helper array for velocity [nf, nq, ndims]
-    alphas: numpy array
-        helper array: left eigenvectors multipled by dU [nf, nq, ns]
-    evals: numpy array
-        helper array for eigenvalues [nf, nq, ns]
-    R: numpy array
-        helper array for right eigenvectors [nf, nq, ns, ns]
+    UqL: ndarray
+        Helper array for left state [nf, nq, ns]
+    UqR: ndarray
+        Helper array for right state [nf, nq, ns]
+    vel: ndarray
+        Helper array for velocity [nf, nq, ndims]
+    alphas: ndarray
+        Helper array: left eigenvectors multipled by dU [nf, nq, ns]
+    evals: ndarray
+        Helper array for eigenvalues [nf, nq, ns]
+    R: ndarray
+        Helper array for right eigenvectors [nf, nq, ns, ns]
     '''
     def __init__(self, Uq=None):
         '''
         This method initializes the attributes.
 
-        Inputs:
-        -------
-            Uq: values of the state variables (typically at the quadrature
-                points) [nf, nq, ns]; used to allocate helper arrays; if None,
-                then empty arrays allocated
-
-        Outputs:
-        --------
-            self: attributes initialized
+        Parameters
+        ----------
+        Uq: ndarray
+            Values of the state variables (typically at the quadrature
+            points) [nf, nq, ns]; used to allocate helper arrays; if None,
+            then empty arrays allocated
         '''
         if Uq is not None:
-            n = Uq.shape[0]
-            nq = Uq.shape[1]
-            ns = Uq.shape[-1]
+            n, nq, ns = Uq.shape
         else:
             n = nq = ns = 0
 
@@ -1021,16 +1019,20 @@ class Roe1D(ConvNumFluxBase):
         This method expresses the momentum vector in the rotated coordinate
         system, which is aligned with the face normal and tangent.
 
-        Inputs:
-        -------
-            srhou: momentum slice
-            Uq: values of the state variable (typically at the quadrature
-                points) [nf, nq, ns]
-            n: normals (typically at the quadrature points) [nf, nq, ndims]
+        Parameters
+        ----------
+        srhou: momentum slice
+        Uq: ndarray
+            Values of the state variable (typically at the quadrature
+            points), with shape `(nf, nq, ns)`.
+        n: ndarray
+            Normals (typically at the quadrature points), with shape
+            `(nf, nq, ndims)`.
 
-        Outputs:
-        --------
-            Uq: momentum terms modified
+        Returns
+        -------
+        Uq: ndarray
+            momentum terms modified
         '''
         Uq[:, :, srhou] *= n
 
@@ -1041,16 +1043,21 @@ class Roe1D(ConvNumFluxBase):
         This method expresses the momentum vector in the standard coordinate
         system. It "undoes" the rotation above.
 
-        Inputs:
-        -------
-            srhou: momentum slice
-            Uq: values of the state variable (typically at the quadrature
-                points) [nf, nq, ns]
-            n: normals (typically at the quadrature points) [nf, nq, ndims]
+        Parameters
+        ----------
+        srhou: slice
+            Indices of momentum components.
+        Uq: ndarray
+            Values of the state variable (typically at the quadrature points),
+            with shape `(nf, nq, ns)`.
+        n: ndarray
+            Normal vectors (typically at the quadrature points), with shape
+            `(nf, nq, ndims)`.
 
-        Outputs:
-        --------
-            Uq: momentum terms modified
+        Returns
+        -------
+        Uq: ndarray
+            Momentum terms modified.
         '''
         Uq[:, :, srhou] /= n
 
@@ -1060,28 +1067,43 @@ class Roe1D(ConvNumFluxBase):
         '''
         This method computes the Roe-averaged variables.
 
-        Inputs:
-        -------
-        physics: physics object
-        srho: density slice
-        velL: left velocity (typically evaluated at the quadrature
-            points) [nf, nq, ndims]
-        velR: right velocity (typically evaluated at the quadrature
-            points) [nf, nq, ndims]
-        YL: left mass fractions (typically evaluated at the quadrature
-            points) [nf, nq, nsp]
-        YR: right mass fractions (typically evaluated at the quadrature
-            points) [nf, nq, nsp]
-        UqL: left state (typically evaluated at the quadrature
-            points) [nf, nq, ns]
-        UqR: right state (typically evaluated at the quadrature
-            points) [nf, nq, ns]
+        Parameters
+        ----------
+        rhoL: ndarray
+            Left density (typically evaluated at the quadrature points) with
+            shape `(nf, nq, 1)`.
+        rhoR: ndarray
+            Right density (typically evaluated at the quadrature points) with
+            shape `(nf, nq, 1)`.
+        YL: ndarray
+            Left species mass fractions (typically evaluated at the quadrature
+            points) with shape `(nf, nq, nsp)`.
+        YR: ndarray
+            Right species mass fractions (typically evaluated at the quadrature
+            points) with shape `(nf, nq, nsp)`.
+        velL: ndarray
+            Left velocity (typically evaluated at the quadrature points) with
+            shape `(nf, nq, ndims)`.
+        velR: ndarray
+            Right velocity (typically evaluated at the quadrature points) with
+            shape `(nf, nq, ndims)`.
+        HL: ndarray
+            Left total enthalpy (typically evaluated at the quadrature points)
+            with shape `(nf, nq, 1)`.
+        HR: ndarray
+            Right total enthalpy (typically evaluated at the quadrature points)
+            with shape `(nf, nq, 1)`.
 
-        Outputs:
-        --------
-        rhoRoe: Roe-averaged density [nf, nq, 1]
-        velRoe: Roe-averaged velocity [nf, nq, ndims]
-        HRoe: Roe-averaged total enthalpy [nf, nq, 1]
+        Returns
+        -------
+        rhoRoe: ndarray
+            Roe-averaged density with shape `(nf, nq, 1)`.
+        YRoe: ndarray
+            Roe-averaged species mass fractions with shape `(nf, nq, nsp)`.
+        velRoe: ndarray
+            Roe-averaged velocity with shape `(nf, nq, ndims)`.
+        HRoe: ndarray
+            Roe-averaged total enthalpy with shape `(nf, nq, 1)`.
         '''
         rhoL_sqrt = np.sqrt(rhoL)
         rhoR_sqrt = np.sqrt(rhoR)
@@ -1098,45 +1120,64 @@ class Roe1D(ConvNumFluxBase):
         '''
         This method computes velocity, density, and pressure jumps.
 
-        Inputs:
-        -------
-        velL: left velocity (typically evaluated at the quadrature
-            points) [nf, nq, ndims]
-        velR: right velocity (typically evaluated at the quadrature
-            points) [nf, nq, ndims]
-        UqL: left state (typically evaluated at the quadrature
-            points) [nf, nq, ns]
-        UqR: right state (typically evaluated at the quadrature
-            points) [nf, nq, ns]
+        Parameters
+        ----------
+        rhoL: ndarray
+            Left density (typically evaluated at the quadrature points) with
+            shape `(nf, nq, 1)`.
+        rhoR: ndarray
+            Right density (typically evaluated at the quadrature points) with
+            shape `(nf, nq, 1)`.
+        YL: ndarray
+            Left species mass fractions (typically evaluated at the quadrature
+            points) with shape `(nf, nq, nsp)`.
+        YR: ndarray
+            Right species mass fractions (typically evaluated at the quadrature
+            points) with shape `(nf, nq, nsp)`.
+        velL: ndarray
+            Left velocity (typically evaluated at the quadrature points) with
+            shape `(nf, nq, ndims)`.
+        velR: ndarray
+            Right velocity (typically evaluated at the quadrature points) with
+            shape `(nf, nq, ndims)`.
+        pL: ndarray
+            Left pressure (typically evaluated at the quadrature points) with
+            shape `(nf, nq, 1)`.
+        pR: ndarray
+            Right pressure (typically evaluated at the quadrature points) with
+            shape `(nf, nq, 1)`.
 
-        Outputs:
-        --------
-        drho: density jump [nf, nq, 1]
-        dvel: velocity jump [nf, nq, ndims]
-        dp: pressure jump [nf, nq, 1]
+        Returns
+        -------
+        drhoY: ndarray
+            Jump in species partial densities with shape `(nf, nq, nsp)`.
+        dvel: ndarray
+            Jump in velocity with shape `(nf, nq, ndims)`.
+        dp: ndarray
+            Jump in pressure with shape `(nf, nq, 1)`.
         '''
+        drhoY = rhoR*YR - rhoL*YL
         dvel = velR - velL
-        drho = rhoR*YR - rhoL*YL
         dp = pR - pL
 
-        return drho, dvel, dp
+        return drhoY, dvel, dp
 
     def get_alphas(self, c, c2, dp, dvel, drho, rhoRoe):
         '''
         This method computes alpha_i = ith left eigenvector * dU.
 
-        Inputs:
-        -------
-            c: speed of sound [nf, nq, 1]
-            c2: speed of sound squared [nf, nq, 1]
-            dp: pressure jump [nf, nq, 1]
-            dvel: velocity jump [nf, nq, ndims]
-            drho: density jump [nf, nq, 1]
-            rhoRoe: Roe-averaged density [nf, nq, 1]
+        Parameters
+        ----------
+        c: speed of sound [nf, nq, 1]
+        c2: speed of sound squared [nf, nq, 1]
+        dp: pressure jump [nf, nq, 1]
+        dvel: velocity jump [nf, nq, ndims]
+        drho: density jump [nf, nq, 1]
+        rhoRoe: Roe-averaged density [nf, nq, 1]
 
-        Outputs:
-        --------
-            alphas: left eigenvectors multipled by dU [nf, nq, ns]
+        Returns
+        -------
+        alphas: left eigenvectors multipled by dU [nf, nq, ns]
         '''
         alphas = self.alphas
 
@@ -1150,14 +1191,17 @@ class Roe1D(ConvNumFluxBase):
         '''
         This method computes the eigenvalues.
 
-        Inputs:
-        -------
-            velRoe: Roe-averaged velocity [nf, nq, ndims]
-            c: speed of sound [nf, nq, 1]
+        Parameters
+        ----------
+        velRoe: ndarray
+            Roe-averaged velocity with shape `(nf, nq, ndims)`.
+        c: ndarray
+            Speed of sound with shape `(nf, nq, 1)`.
 
-        Outputs:
-        --------
-            evals: eigenvalues [nf, nq, ns]
+        Returns
+        -------
+        evals: ndarray
+            Array of Eigenvalues with shape `(nf, nq, ns)`.
         '''
         evals = self.evals
 
@@ -1171,16 +1215,21 @@ class Roe1D(ConvNumFluxBase):
         '''
         This method computes the right eigenvectors.
 
-        Inputs:
-        -------
-            c: speed of sound [nf, nq, 1]
-            evals: eigenvalues [nf, nq, ns]
-            velRoe: Roe-averaged velocity [nf, nq, ndims]
-            HRoe: Roe-averaged total enthalpy [nf, nq, 1]
+        Parameters
+        ----------
+        c: ndarray
+            Speed of sound with shape `(nf, nq, 1)`.
+        evals: ndarray
+            Array of Eigenvalues with shape `(nf, nq, ns)`.
+        velRoe: ndarray
+            Roe-averaged velocity with shape `(nf, nq, ndims)`.
+        HRoe: ndarray
+            Roe-averaged total enthalpy with shape `(nf, nq, 1)`.
 
-        Outputs:
-        --------
-            R: right eigenvectors [nf, nq, ns, ns]
+        Returns
+        -------
+        R: ndarray
+            Right eigenvectors with shape `(nf, nq, ns, ns)`.
         '''
         R = self.R
 
@@ -1191,7 +1240,7 @@ class Roe1D(ConvNumFluxBase):
         R[:, :, 1, 0] = evals[:, :, 0]; R[:, :, 1, 1] = velRoe[:, :, 0]
         R[:, :, 1, -1] = evals[:, :, -1]
         # last row
-        R[:, :, -1, 0:1] = HRoe - velRoe[:, :, 0:1]*c;
+        R[:, :, -1, 0:1] = HRoe - velRoe[:, :, 0:1]*c
         R[:, :, -1, 1:2] = 0.5*np.sum(velRoe*velRoe, axis=2, keepdims=True)
         R[:, :, -1, -1:] = HRoe + velRoe[:, :, 0:1]*c
 
@@ -1199,19 +1248,14 @@ class Roe1D(ConvNumFluxBase):
 
     def compute_flux(self, physics, UqL_std, UqR_std, normals):
         # Reshape arrays
-        n = UqL_std.shape[0]
-        nq = UqL_std.shape[1]
-        ns = UqL_std.shape[2]
-        ndims = ns - 2
-        self.UqL_stdL = np.zeros_like(UqL_std)
-        self.UqL_stdR = np.zeros_like(UqL_std)
+        n, nq, ns = UqL_std.shape
+        ndims = physics.NDIMS
         self.vel = np.zeros([n, nq, ndims])
         self.alphas = np.zeros_like(UqL_std)
         self.evals = np.zeros_like(UqL_std)
         self.R = np.zeros([n, nq, ns, ns])
 
         # Unpack
-        srho = physics.get_state_slice("Densities")
         srhou = physics.get_state_slice("Momentum")
 
         # Unit normals
@@ -1233,7 +1277,11 @@ class Roe1D(ConvNumFluxBase):
         YL = physics.thermo.Y
         velL = physics.velocity
         pL = physics.thermo.p
-        HL = physics.thermo.h + physics.kinetic_energy / rhoL
+        # HL = physics.thermo.h + physics.kinetic_energy / rhoL
+        HL = physics.compute_variable("TotalEnthalpy", UqL)
+        if np.any(rhoL <= 0.):
+            # Non-physical state
+            raise errors.NotPhysicalError("rhoL is negative")
 
         # Get right state
         physics.set_thermo_state(UqR)
@@ -1241,21 +1289,26 @@ class Roe1D(ConvNumFluxBase):
         YR = physics.thermo.Y
         velR = physics.velocity
         pR = physics.thermo.p
-        HR = physics.thermo.h + physics.kinetic_energy / rhoR
+        # HR = physics.thermo.h + physics.kinetic_energy / rhoR
+        HR = physics.compute_variable("TotalEnthalpy", UqR)
+        if np.any(rhoR <= 0.):
+            # Non-physical state
+            raise errors.NotPhysicalError("rhoR is negative")
 
         # Roe-averaged state
         rhoRoe, YRoe, velRoe, HRoe = self.roe_average_state(rhoL, rhoR, YL, YR, velL, velR, HL, HR)
 
         # Speed of sound from Roe-averaged state
-        c2 = (gamma - 1.)*(HRoe - 0.5*np.sum(velRoe*velRoe, axis=2,
-                keepdims=True))
+        c2 = (gamma - 1.)*(HRoe - 0.5*np.sum(velRoe*velRoe, axis=2, keepdims=True))
         if np.any(c2 <= 0.):
             # Non-physical state
-            raise errors.NotPhysicalError
+            error = 'NaN' if np.any(np.isnan(c2)) else 'negative'
+            raise errors.NotPhysicalError("Speed of sound is %s" % error)
         c = np.sqrt(c2)
 
         # Jumps
-        drho, dvel, dp = self.get_differences(rhoL, rhoR, YL, YR, velL, velR, pL, pR)
+        drhoY, dvel, dp = self.get_differences(rhoL, rhoR, YL, YR, velL, velR, pL, pR)
+        drho = drhoY.sum(axis=2, keepdims=True)
 
         # alphas (left eigenvectors multiplied by dU)
         alphas = self.get_alphas(c, c2, dp, dvel, drho, rhoRoe)

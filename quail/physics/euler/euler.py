@@ -366,7 +366,6 @@ class Euler(base.PhysicsBase):
 
         rho = self.thermo.rho
         u = self.velocity
-        umag2 = (u*u).sum(axis=2, keepdims=True)
         rhou = Uq[:, :, None, srhou] # [n, nq, 1, ndims]
 
         # Calculate pressure
@@ -390,7 +389,7 @@ class Euler(base.PhysicsBase):
         F[:, :, srhou, :] = momentum_flux  # Flux of momentum
         F[:, :, srhoE, :] = h * rhou       # Flux of energy
 
-        return F, (umag2, self.thermo.c, rho, p)
+        return F, (u, self.thermo)
 
     def get_conv_eigenvectors(self, U_bar):
         '''
