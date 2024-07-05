@@ -166,6 +166,9 @@ class ThermoBase(ABC):
     def set_state_from_rhoi_p(self, rhoi, p):
         pass
 
+    def set_state_from_rhoi_T(self, rhoi, T):
+        pass
+
     def set_state_from_Y_T_p(self, Y, T, p):
         pass
 
@@ -208,6 +211,8 @@ class CaloricallyPerfectGas(ThermoBase):
             dpdrhoi = (self.gamma-1.0)*self.e
             dpde = (self.gamma-1.0)*self.rho
             return dpdrhoi, dpde
+        elif self.inputs == 'rhoi_T':
+            return self.p/self.rho, self.p/self.T
         elif self.inputs == 'rhoi_p':
             return 0.0, 1.0
         elif self.inputs == 'Y_T_P':
@@ -230,6 +235,18 @@ class CaloricallyPerfectGas(ThermoBase):
         self.e = RT / (self.gamma - 1.0)
 
         self.inputs = 'rhoi_p'
+
+    def set_state_from_rhoi_T(self, rhoi, T):
+        self.rho = rhoi.sum(axis=2, keepdims=True)
+        self.Y = rhoi / self.rho
+        self.T = T
+
+        RT = self.R * self.T
+
+        self.p = self.rho * RT
+        self.e = RT / (self.gamma - 1.0)
+
+        self.inputs = 'rhoi_T'
 
     def set_state_from_Y_T_p(self, Y, T, p):
         self.Y = Y
@@ -289,7 +306,7 @@ class CanteraThermo(ThermoBase):
             self.gas.TP = Tref, self.gas.reference_pressure
             self.eref = (self.gas.partial_molar_int_energies / self.gas.molecular_weights)[None, None, :]
 
-        self.solution = None
+        self.solution = self.gas
 
     @property
     def R(self):
@@ -373,12 +390,9 @@ class CanteraThermo(ThermoBase):
 
     def set_state_from_Y_T_p(self, Y, T, p):
         # Create a SolutionArray to handle the thermodynamic computations
-        if hasattr(T, 'shape'):
-            shape = T.shape
-            p = np.broadcast_to(p, shape)
-        elif hasattr(p, 'shape'):
-            shape = p.shape
-            T = np.broadcast_to(T, shape)
+        shape = (T + p).shape
+        T = np.broadcast_to(T, shape)
+        p = np.broadcast_to(p, shape)
         self.solution = ct.SolutionArray(self.gas, shape=shape[:2])
 
         self.solution.TPY = T[..., 0], p[..., 0], Y
@@ -422,15 +436,15 @@ class MutationppThermo(ThermoBase):
         'cv': 'mixtureFrozenCvMass',
         'gamma': 'mixtureFrozenGamma',
         'c': 'frozenSoundSpeed',
-        'kappa': 'frozenThermalConductivity',
-        'mu': 'viscosity',
+        'thermal_conductivity': 'frozenThermalConductivity',
+        'viscosity': 'viscosity',
     }
     _species_properties_map = {
         'X': 'X',
         'rhoi': 'densities',
         'dXdp': 'dXidP',
         'dXdT': 'dXidT',
-        'diff': 'averageDiffusionCoeffs',
+        'mix_diff_coeffs': 'averageDiffusionCoeffs',
         'net_production_rates': 'netProductionRates',
     }
 

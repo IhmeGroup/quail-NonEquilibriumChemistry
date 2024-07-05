@@ -96,8 +96,8 @@ def set_transport(TransportModel='NotNeeded', **kwargs):
         return transport_tools.SutherlandTransport(**kwargs)
     elif TransportType[TransportModel] == TransportType.Cantera:
         return transport_tools.CanteraTransport(**kwargs)
-    # elif TransportType[transport_type] == TransportType.Mutationpp:
-    # 	return transport_tools.MutationppTransport
+    elif TransportType[TransportModel] == TransportType.Mutationpp:
+        return transport_tools.MutationppTransport(**kwargs)
     elif TransportType[TransportModel] == TransportType.NotNeeded:
         return None
     else:
