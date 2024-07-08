@@ -31,10 +31,6 @@ def write_data_file(solver, iwrite):
 	    solver: solver object
 	    iwrite: integer to label data file
 	'''
-	
-	# Remove un-pickle-able functions, objects, etc...
-	solver.physics.gas = None
-
 	# Get file name
 	prefix = solver.params["Prefix"]
 	if iwrite >= 0:
@@ -62,5 +58,11 @@ def read_data_file(fname):
 	# Open and get solver
 	with open(fname, 'rb') as fo:
 		solver = pickle.load(fo)
+
+	# Reinitialize un-pickle-able objects
+	if solver.physics.thermo is not None:
+		solver.physics.thermo.reinitialize()
+	if solver.physics.transport is not None:
+		solver.physics.transport.reinitialize()
 
 	return solver

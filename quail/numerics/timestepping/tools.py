@@ -56,6 +56,10 @@ def set_stepper(params, U):
 		stepper = stepper_defs.LSRK4(U)
 	elif StepperType[time_stepper] == StepperType.SSPRK3:
 		stepper = stepper_defs.SSPRK3(U)
+	elif StepperType[time_stepper] == StepperType.SSPRK3_4S:
+		stepper = stepper_defs.SSPRK3_4S(U)
+	elif StepperType[time_stepper] == StepperType.LSSSPRK3:
+		stepper = stepper_defs.LSSSPRK3(U)
 	# If setting a splitting scheme select solvers for the splits
 	elif StepperType[time_stepper] == StepperType.Strang:
 		stepper = stepper_defs.Strang(U)

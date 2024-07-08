@@ -69,8 +69,8 @@ def set_thermo(ThermoModel='NotNeeded', **kwargs):
         return thermo_tools.CaloricallyPerfectGas(**kwargs)
     elif ThermoType[ThermoModel] == ThermoType.Cantera:
         return thermo_tools.CanteraThermo(**kwargs)
-    # elif ThermoType[ThermoModel] == ThermoType.Mutationpp:
-    # 	return thermo_tools.MutationppInterface(**kwargs)
+    elif ThermoType[ThermoModel] == ThermoType.Mutationpp:
+        return thermo_tools.MutationppThermo(**kwargs)
     elif ThermoType[ThermoModel] == ThermoType.NotNeeded:
         return None
     else:
@@ -96,8 +96,8 @@ def set_transport(TransportModel='NotNeeded', **kwargs):
         return transport_tools.SutherlandTransport(**kwargs)
     elif TransportType[TransportModel] == TransportType.Cantera:
         return transport_tools.CanteraTransport(**kwargs)
-    # elif TransportType[transport_type] == TransportType.Mutationpp:
-    # 	return transport_tools.MutationppTransport
+    elif TransportType[TransportModel] == TransportType.Mutationpp:
+        return transport_tools.MutationppTransport(**kwargs)
     elif TransportType[TransportModel] == TransportType.NotNeeded:
         return None
     else:
