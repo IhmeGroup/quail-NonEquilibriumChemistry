@@ -210,7 +210,7 @@ class Euler(base.PhysicsBase):
 
         # Handle multiple dimensions
         if self.NDIMS > 0:
-            additional_variable_list['Velocity'] = "u"
+            additional_variable_list['Velocity'] = "u-vector"
             additional_variable_list['VelocityMagnitude'] = "|u|"
 
             dim_list = [('X', 'u'), ('Y', 'v'), ('Z', 'w')]
