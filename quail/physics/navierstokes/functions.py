@@ -45,6 +45,7 @@ class BCType(Enum):
 	boundary conditions are specific to the available Euler equation sets.
 	'''
 	IsothermalWall = auto()
+	AdiabaticWall = auto()
 
 
 
@@ -126,51 +127,58 @@ class TaylorGreenVortexNS(FcnBase):
 	'''
 	2D Taylor Green Vortex Case
 	'''
-	def __init__(self):
-		pass
+	def __init__(self, state={}):
+		# Set default values
+		self.init_state = {
+			'rhoi': np.array([1.0]),
+			'T': 1.0,
+			'u': 0.0,
+			'v': 0.0,
+			'Ma': 0.01,
+		} | state  # Override values provided in input deck
+
+		# Remove redundant values
+		if 'Y' in state.keys():
+			self.init_state.pop('rhoi')
+
+		# Turn all scalar values into arrays
+		for key, value in self.init_state.items():
+			self.init_state[key] = np.atleast_1d(value)
+
 	def get_state(self, physics, x, t):
 		# Unpack
-		x1 = x[:, :, [0]]
-		x2 = x[:, :, [1]]
+		u = self.init_state['u']
+		v = self.init_state['v']
+		Ma = self.init_state['Ma']
+		x1 = x[:, :, [0]] - u*t
+		x2 = x[:, :, [1]] - v*t
 
-		Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
+		# Get the initial unperturbed state
+		physics.get_state_from_primitives(**self.init_state)
+		thermo = physics.thermo
+		Y0 = thermo.Y
+		rho0 = thermo.rho
+		T0 = thermo.T
+		RT = thermo.R * T0
+		P0 = thermo.p
 
-		gamma = physics.thermo.gamma
+		gamma = thermo.gamma
+		V0 = gamma*Ma*Ma*RT
 
-		srho, srhou, srhoE = physics.get_state_slices()
-
-		Ma = 0.01
-		P0 = 1. / (gamma*Ma*Ma)
-		print(physics.thermo)
 		mu = physics.transport.get_viscosity(physics.thermo)
-
-		nu = mu/1. # Rho = 1
+		nu = mu/rho0
 
 		F = np.exp(-8. * np.pi*np.pi * nu * t)
-		P = P0 + 0.25 * (np.cos(4.*np.pi * x1) + \
-			np.cos(4.*np.pi * x2)) * F * F
 
 		''' Fill state '''
-		Uq[:, :, srho] = 1.0
-		rhou = np.sin(2.*np.pi * x1) * np.cos(2.*np.pi * x2) * F
-		rhov = -np.cos(2.*np.pi * x1) * np.sin(2.*np.pi * x2) * F
-		Uq[:, :, srhou] = np.concatenate([rhou, rhov], axis=2)
-		Uq[:, :, srhoE] = (P / (gamma-1.))[..., None] + 0.5 * (
-			rhou*rhou + rhov*rhov) / Uq[:, :, srho]
+		state = {
+			'rhoi': rho0*Y0,
+			'p': P0 + 0.25 * rho0 * (np.cos(4.*np.pi * x1) + np.cos(4.*np.pi * x2)) * F * F,
+			'u': u + V0 * np.sin(2.*np.pi * x1) * np.cos(2.*np.pi * x2) * F,
+			'v': v - V0 * np.cos(2.*np.pi * x1) * np.sin(2.*np.pi * x2) * F,
+		}
 
-		return Uq
-
-'''
--------------------
-Boundary conditions
--------------------
-These classes inherit from either the BCWeakRiemann or BCWeakPrescribed
-classes. See those parent classes for detailed comments of attributes
-and methods. Information specific to the corresponding child classes can be
-found below. These classes should correspond to the BCType enum members
-above.
-'''
-
+		return physics.get_state_from_primitives(**state)
 
 
 '''
@@ -507,8 +515,53 @@ class IsothermalWall(BCWeakPrescribed):
 		UqB[:, :, srhou] = 0.
 
 		# Boundary energy
-		rhoEB = rhoB*physics.thermo.e + physics.kinetic_energy
+		rhoEB = rhoB*physics.thermo.e
 		UqB[:, :, srhoE] = rhoEB
+
+		return UqB
+
+class AdiabaticWall(BCWeakPrescribed):
+	'''
+	This class corresponds to a viscous wall with zero flux
+	(adiabatic). See documentation for more details.
+	'''
+	def __init__(self):
+		'''
+		This method initializes the attributes.
+
+		Outputs:
+		--------
+		    self: attributes initialized
+		'''
+		pass
+
+	def get_boundary_state(self, physics, UqI, normals, x, t):
+		UqB = UqI.copy()
+
+		pI = physics.compute_variable("Pressure", UqI)
+		if np.any(pI < 0.):
+			raise errors.NotPhysicalError
+		# boundary pressure = interior pressure
+
+		# Interior temperature
+		tempI = physics.compute_variable("Temperature", UqI)
+		if np.any(tempI < 0.):
+			raise errors.NotPhysicalError
+		# boundary temperature = interior temperature (q=0)
+
+		# thus boundary density = interior density
+
+		# Boundary velocity
+		smom = physics.get_momentum_slice()
+		UqB[:, :, smom] = 0.
+
+		# Boundary energy
+		# srho = physics.get_state_slice("Density")
+		srhoE = physics.get_state_slice("Energy")
+		UqB[:, :, srhoE] = pI/(physics.gamma - 1)
+		# cv = physics.R / (physics.gamma - 1)
+		# rhoB = UqB[:, :, srho]
+		# UqB[:, :, srhoE] = rhoB * cv * tempI
 
 		return UqB
 
