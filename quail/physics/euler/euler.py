@@ -236,6 +236,107 @@ class Euler(base.PhysicsBase):
     def kinetic_energy(self, kinetic_energy):
         self._kinetic_energy = kinetic_energy
 
+    def get_state_from_primitives(self, **kwargs):
+        '''
+        This method computes the state vector from a set of primitive variables.
+
+        Parameters
+        ----------
+        rhoi or Y: ndarray
+            Variable defining the mixture. Can have shape `(nsp,)`,
+            or broadcast to `(m, n, nsp)`.
+        p, T, rho, and/or e: float or ndarray
+            Additional scalar variable(s) which, along with the mixture
+            variable, fully defines the thermodynamic state. If arrays are
+            given they must broadcast to shape `(m, n, 1)`.
+        rhou or u: ndarray, optional
+            Momentum or velocity vector. Can have shape `(ndims,)`, or
+            broadcast to `(m, n, ndims)`. Defaults to zero velocity.
+
+        Returns
+        -------
+        state: ndarray
+            State array for the given primitives, with shape `(m, n, ns)`
+            where `m` and `n` are defined by the input array shapes.
+        '''
+        keys = kwargs.keys()
+
+        # Get mixture variable
+        use_Y_T_p = False
+        if 'Y' in keys:
+            Y = kwargs['Y']
+            while Y.ndim < 3:
+                Y = Y[None, :]
+            if 'rho' in keys:
+                rhoi = kwargs['rho'] * Y
+            else:
+                use_Y_T_p = True
+        elif 'rhoi' in keys:
+            rhoi = kwargs['rhoi']
+            while rhoi.ndim < 3:
+                rhoi = rhoi[None, :]
+        else:
+            raise TypeError("Cannot specify thermodynamic state without mixture " +
+                            "information (either rhoi or Y).")
+
+        # Get additional thermodynamic variables
+        if use_Y_T_p:
+            if 'T' not in keys and 'p' not in keys:
+                raise TypeError("When specifying mass fractions, must " +
+                                "additionally specify 'p' and 'T'.")
+            T = np.atleast_3d(kwargs['T'])
+            p = np.atleast_3d(kwargs['p'])
+            self.thermo.set_state_from_Y_T_p(Y, T, p)
+            rhoi = self.thermo.rho * self.thermo.Y
+        else:
+            if 'T' in keys:
+                self.thermo.set_state_from_rhoi_T(rhoi, np.atleast_3d(kwargs['T']))
+            elif 'p' in keys:
+                self.thermo.set_state_from_rhoi_p(rhoi, np.atleast_3d(kwargs['p']))
+            elif 'e' in keys:
+                self.thermo.set_state_from_rhoi_e(rhoi, np.atleast_3d(kwargs['e']))
+            else:
+                raise TypeError("Cannot set thermodynamic state without one " +
+                                "of 'T', 'p', or 'e'.")
+
+        # With the thermodynamic state set, get the momentum
+        if 'rhou' in keys:
+            rhou = kwargs['rhou']
+            while rhou.ndim < 3:
+                rhou = rhou[None, :]
+        elif 'u' in keys:
+            u = kwargs['u']
+
+            # Check if individual components are given and append them
+            if 'v' in keys:
+                if 'w' in keys:
+                    u = np.concatenate((u, kwargs['v'], kwargs['w']), axis=-1)
+                else:
+                    u = np.concatenate((u, kwargs['v']), axis=-1)
+
+            # Expand first dimensions if needed
+            while u.ndim < 3:
+                u = u[None, :]
+            rhou = self.thermo.rho * u
+        else:
+            rhou = np.zeros((1, 1, self.NDIMS))
+
+        # Define the resulting shape based on the largest input shapes
+        m, n = 1, 1
+        e = self.thermo.e
+        for var in [rhoi, rhou, e]:
+            m = max(m, var.shape[0])
+            n = max(n, var.shape[1])
+
+        # Finally, set the state vector [m, n, ns]
+        state = np.zeros((m, n, self.NUM_STATE_VARS))
+        srho, srhou, srhoE = self.get_state_slices()
+        state[:, :, srho] = rhoi
+        state[:, :, srhou] = rhou
+        state[:, :, srhoE] = self.thermo.rho * self.thermo.e + 0.5*np.sum(rhou*rhou, axis=2, keepdims=True) / self.thermo.rho
+
+        return state
+
     def set_thermo_state(self, Uq, flag_non_physical=None):
         ''' Extract state variables '''
         srho, srhou, _ = self.get_state_slices()
@@ -278,19 +379,21 @@ class Euler(base.PhysicsBase):
             rhoE = self.compute_variable("TotalEnergy", Uq)
             ke = self.compute_variable("KineticEnergy", Uq)
             return rhoE - ke
-        elif self.match_variable(vname, "Velocity"):
-            rho = self.compute_variable("Density", Uq)
-            rhou = self.compute_variable("Momentum", Uq)
-            self.velocity = rhou / rho
-            return self.velocity
+
+        # Velocity is required for following variables:
+        rho = self.compute_variable("Density", Uq)
+        rhou = self.compute_variable("Momentum", Uq)
+        velocity = rhou / rho
+        if self.match_variable(vname, "Velocity"):
+            return velocity
         elif self.match_variable(vname, "VelocityMagnitude"):
-            return np.linalg.norm(self.velocity, axis=2, keepdims=True)
+            return np.linalg.norm(velocity, axis=2, keepdims=True)
         elif self.match_variable(vname, "XVelocity"):
-            return self.velocity[:, :, [0]]
+            return velocity[:, :, [0]]
         elif self.match_variable(vname, "YVelocity"):
-            return self.velocity[:, :, [1]]
+            return velocity[:, :, [1]]
         elif self.match_variable(vname, "ZVelocity"):
-            return self.velocity[:, :, [2]]
+            return velocity[:, :, [2]]
 
         # For other quantities, first set the thermodynamic state:
         self.set_thermo_state(Uq, flag_non_physical)

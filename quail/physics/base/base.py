@@ -509,6 +509,19 @@ class PhysicsBase(ABC):
 
         return slc
 
+    @abstractmethod
+    def get_state_from_primitives(self, **kwargs):
+        '''
+        This method computes the state vector from a set of primitive variables.
+        Parameters are specified by the physics class.
+
+        Returns
+        -------
+        state: ndarray
+            State array for the given primitives, with shape `(ns,)`.
+        '''
+        pass
+
     def get_quadrature_order(self, order):
         '''
         This method gets recommended quadrature order for the given physics.
@@ -761,7 +774,7 @@ class PhysicsBase(ABC):
         -------
             vname: Enum name of the queried variable.
             match: Variable to match against.
-        
+
         Outputs:
         --------
             True if the inputs match, False otherwise.
