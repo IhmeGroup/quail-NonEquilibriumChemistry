@@ -79,6 +79,8 @@ class NavierStokes(euler.Euler):
             base_BC_type.Extrapolate : base_fcns.Extrapolate,
             navierstokes_bc_type.IsothermalWall :
                     navierstokes_fcns.IsothermalWall,
+            navierstokes_bc_type.AdiabaticWall :
+                    navierstokes_fcns.AdiabaticWall,
         })
 
         if self.NDIMS == 2:
