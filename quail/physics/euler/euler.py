@@ -102,6 +102,7 @@ class Euler(base.PhysicsBase):
                 base_conv_num_flux_type.LaxFriedrichs:
                         euler_fcns.LaxFriedrichs,
                 euler_conv_num_flux_type.Roe: euler_fcns.Roe1D,
+                euler_conv_num_flux_type.HLLC: euler_fcns.HLLC,
             })
         elif self.NDIMS == 2:
             # Define functions for 2D problem types
@@ -122,6 +123,7 @@ class Euler(base.PhysicsBase):
                 base_conv_num_flux_type.LaxFriedrichs:
                     euler_fcns.LaxFriedrichs,
                 euler_conv_num_flux_type.Roe: euler_fcns.Roe2D,
+                euler_conv_num_flux_type.HLLC: euler_fcns.HLLC,
             })
 
         self.IC_fcn_map.update(d)

@@ -71,6 +71,7 @@ class ConvNumFluxType(Enum):
     numerical fluxes are specific to the available Euler equation sets.
     '''
     Roe = auto()
+    HLLC = auto()
 
 
 '''
@@ -1409,3 +1410,146 @@ class Roe2D(Roe1D):
         R[:, :, i, -1] = velRoe[:, :, -1]; R[:, :, i, i] = 1.
 
         return R
+
+
+class HLLC(ConvNumFluxBase):
+    '''
+    This class implements the modified Harten-Lax-van Leer (HLL) scheme.
+    '''
+    def get_wave_speeds(self, rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR):
+        estimators = [
+            self.get_wave_speeds_roe,
+            self.get_wave_speeds_pvrs,
+            ]
+
+        # SL, SR = 1e30, -1e30
+        SL, SR = uL-aL, uR+aR
+        for estimator in estimators:
+            SLtemp, SRtemp = estimator(rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR)
+            SL = np.minimum(SL, SLtemp)
+            SR = np.maximum(SR, SRtemp)
+
+        return SL, SR
+
+    def get_wave_speeds_roe(self, rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR):
+        a2L = aL*aL
+        a2R = aR*aR
+        rhoL_sqrt = np.sqrt(rhoL)
+        rhoR_sqrt = np.sqrt(rhoR)
+        denom = 1.0 / (rhoL_sqrt + rhoR_sqrt)
+
+        uRoe = (rhoL_sqrt*uL + rhoR_sqrt*uR)*denom
+        aRoe = np.sqrt(
+            (rhoL_sqrt*a2L + rhoR_sqrt*a2R)*denom +
+            0.5*(rhoL_sqrt*rhoR_sqrt*(uR-uL)**2)*denom**2
+            )
+
+        SL = uRoe - aRoe
+        SR = uRoe + aRoe
+
+        return SL, SR
+
+    def get_wave_speeds_pvrs(self, rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR):
+        # Primitive-Variable Riemann Solver (PVRS):
+        rho_avg = 0.5*(rhoL + rhoR)
+        a_avg = 0.5*(aL + aR)
+        p_pvrs = 0.5*(pL + pR - (uR-uL)*rho_avg*a_avg)
+
+        # Left wave speed
+        qL = np.ones(pL.shape)
+        idx = np.where(p_pvrs > pL)[:2]
+        g = gL[*idx, :] if isinstance(gL, np.ndarray) else gL
+        qL[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pL[*idx, :] - 1.0))
+        SL = uL - aL*qL
+
+        # Right wave speed
+        qR = np.ones(pL.shape)
+        idx = np.where(p_pvrs > pR)[:2]
+        g = gR[*idx, :] if isinstance(gR, np.ndarray) else gR
+        qR[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pR[*idx, :] - 1.0))
+        SR = uR + aR*qR
+
+        return SL, SR
+
+    def compute_flux(self, physics, UqL, UqR, normals):
+        # Normalize the normal vectors
+        n_mag = np.linalg.norm(normals, axis=2, keepdims=True)
+        n_hat = normals/n_mag
+
+        # Left flux
+        FqL, (uLvec, thermoL) = physics.get_conv_flux_projected(UqL, n_hat)
+        uL = (uLvec*n_hat).sum(axis=2, keepdims=True)
+        u2L = (uLvec*uLvec).sum(axis=2, keepdims=True)
+        rhoL = thermoL.rho
+        pL = thermoL.p
+        aL = thermoL.c
+        gL = thermoL.gamma
+        YL = thermoL.Y
+        eL = thermoL.e
+
+        # Right flux
+        FqR, (uRvec, thermoR) = physics.get_conv_flux_projected(UqR, n_hat)
+        uR = (uRvec*n_hat).sum(axis=2, keepdims=True)
+        u2R = (uRvec*uRvec).sum(axis=2, keepdims=True)
+        rhoR = thermoR.rho
+        pR = thermoR.p
+        aR = thermoR.c
+        gR = thermoR.gamma
+        YR = thermoR.Y
+        eR = thermoR.e
+
+        # Estimate the wave speeds
+        SL, SR = self.get_wave_speeds(rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR)
+
+        # Initialize flux to left flux
+        F = FqL
+
+        # Set points where SR <= 0 to right flux
+        idx = np.where(SR <= 0.0)[:2]
+        F[*idx, :] = FqR[*idx, :]
+
+        # Downselect to points where SL < 0 < SR
+        idx = np.where(np.logical_and(SL < 0, SR > 0))[:2]
+
+        # Initialize with left values
+        Sk = SL[*idx, :]
+        pk = pL[*idx, :]
+        rhok = rhoL[*idx, :]
+        uk = uL[*idx, :]
+        u2k = u2L[*idx, :]
+        Yk = YL[*idx, :]
+        ek = eL[*idx, :]
+        vk = uLvec[*idx, :]
+        Uk = UqL[*idx, :]
+
+        # Shear wave speed
+        alphaL = alphak = rhok*(Sk-uk)
+        alphaR = rhoR[*idx, :]*(SR[*idx, :]-uR[*idx, :])
+        Sstar = (pR[*idx, :] - pk + uk*alphaL - uR[*idx, :]*alphaR) / (alphaL - alphaR)
+
+        # Overwrite values with right side where S* <= 0
+        idxR = np.where(Sstar < 0.0)[0]
+        idxR_main = tuple([subidx[idxR] for subidx in idx])
+        Sk[idxR, :] = SR[*idxR_main, :]
+        pk[idxR, :] = pR[*idxR_main, :]
+        rhok[idxR, :] = rhoR[*idxR_main, :]
+        uk[idxR, :] = uR[*idxR_main, :]
+        u2k[idxR, :] = u2R[*idxR_main, :]
+        Yk[idxR, :] = YR[*idxR_main, :]
+        ek[idxR, :] = eR[*idxR_main, :]
+        vk[idxR, :] = uRvec[*idxR_main, :]
+        Uk[idxR, :] = UqR[*idxR_main, :]
+
+        F[*idxR_main, :] = FqR[*idxR_main, :]
+        alphak[idxR, :] = alphaR[idxR, :]
+
+        # Combine to get overall flux
+        rhokstar = alphak / (Sk - Sstar)
+        C = (Sstar-uk)*(Sstar + pk/alphak)
+        vk += n_hat[*idx, :]*(Sstar - (vk*n_hat[*idx, :]).sum(axis=1, keepdims=True))
+        Ustar = rhokstar*np.concatenate([Yk, vk, ek+0.5*u2k+C], axis=-1)
+        dF = Sk*(Ustar - Uk)
+
+        F[*idx, :] += dF
+
+        return n_mag*F
