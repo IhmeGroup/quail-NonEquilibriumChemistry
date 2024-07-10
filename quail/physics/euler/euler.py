@@ -207,6 +207,8 @@ class Euler(base.PhysicsBase):
                 additional_variable_list["MassFraction%s" % sp] = val
                 Y_list += [val]
             additional_variable_list["MassFractions"] = Y_list
+        else:
+            additional_variable_list["MassFractions"] = "Y"
 
         # Handle multiple dimensions
         if self.NDIMS > 0:
@@ -367,6 +369,10 @@ class Euler(base.PhysicsBase):
         if self.match_variable(vname, "Density"):
             srho = self.get_state_slice("Densities")
             return Uq[..., srho].sum(axis=2, keepdims=True)
+        if self.match_variable(vname, "MassFractions"):
+            srho = self.get_state_slice("Densities")
+            rhoi = Uq[..., srho]
+            return rhoi / rhoi.sum(axis=2, keepdims=True)
         elif self.match_variable(vname, "TotalEnergy"):
             irhoE = self.get_state_index("Energies")
             return Uq[..., [irhoE]]
