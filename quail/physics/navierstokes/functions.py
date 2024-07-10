@@ -525,43 +525,29 @@ class AdiabaticWall(BCWeakPrescribed):
 	This class corresponds to a viscous wall with zero flux
 	(adiabatic). See documentation for more details.
 	'''
-	def __init__(self):
-		'''
-		This method initializes the attributes.
-
-		Outputs:
-		--------
-		    self: attributes initialized
-		'''
-		pass
 
 	def get_boundary_state(self, physics, UqI, normals, x, t):
 		UqB = UqI.copy()
+		_, srhou, srhoE = physics.get_state_slices()
 
-		pI = physics.compute_variable("Pressure", UqI)
-		if np.any(pI < 0.):
-			raise errors.NotPhysicalError
-		# boundary pressure = interior pressure
+        # Boundary densities = interior densities
+		rhoiI = physics.compute_variable("Densities", UqI)
+		if np.any(rhoiI < 0.):
+			raise errors.NotPhysicalError("Negative densities at adiabatic wall.")
 
-		# Interior temperature
-		tempI = physics.compute_variable("Temperature", UqI)
-		if np.any(tempI < 0.):
-			raise errors.NotPhysicalError
-		# boundary temperature = interior temperature (q=0)
+		# Boundary temperature = interior temperature (q=0)
+		TI = physics.compute_variable("Temperature", UqI)
+		if np.any(TI < 0.):
+			raise errors.NotPhysicalError("Negative temperature at adiabatic wall.")
 
-		# thus boundary density = interior density
+		# Set the thermodynamic state from the interior densities and temperature
+		physics.thermo.set_state_from_rhoi_T(rhoiI, TI)
 
 		# Boundary velocity
-		smom = physics.get_momentum_slice()
-		UqB[:, :, smom] = 0.
+		UqB[:, :, srhou] = 0.
 
 		# Boundary energy
-		# srho = physics.get_state_slice("Density")
-		srhoE = physics.get_state_slice("Energy")
-		UqB[:, :, srhoE] = pI/(physics.gamma - 1)
-		# cv = physics.R / (physics.gamma - 1)
-		# rhoB = UqB[:, :, srho]
-		# UqB[:, :, srhoE] = rhoB * cv * tempI
+		UqB[:, :, srhoE] = physics.thermo.rho * physics.thermo.e
 
 		return UqB
 

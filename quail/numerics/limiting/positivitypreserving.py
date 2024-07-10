@@ -140,8 +140,10 @@ class PositivityPreserving(base.LimiterBase):
 		rho_bar = physics.compute_variable(self.var_name1, U_bar)
 		p_bar = physics.compute_variable(self.var_name2, U_bar)
 
-		if np.any(rho_bar < 0.) or np.any(p_bar < 0.):
-			raise errors.NotPhysicalError
+		if np.any(rho_bar < -POS_TOL):
+			raise errors.NotPhysicalError("Negative element species partial density.")
+		elif np.any(p_bar < -POS_TOL):
+			raise errors.NotPhysicalError("Negative element pressure.")
 
 		# Ignore divide-by-zero
 		np.seterr(divide='ignore')
@@ -186,8 +188,8 @@ class PositivityPreserving(base.LimiterBase):
 		elem_IDs = negative_p_indices[0]
 		i_neg_p  = negative_p_indices[1]
 
-		theta[elem_IDs, i_neg_p] = (p_bar[elem_IDs, :, :] - POS_TOL) / (
-				p_bar[elem_IDs, :, :] - p_elem_faces[elem_IDs, i_neg_p, :])
+		theta[elem_IDs, i_neg_p, :] = (p_bar[elem_IDs, 0, :] - POS_TOL) / (
+				p_bar[elem_IDs, 0, :] - p_elem_faces[elem_IDs, i_neg_p, :])
 
 		# Truncate theta2; otherwise, can get noticeably different
 		# results across machines, possibly due to poor conditioning in its
@@ -258,8 +260,10 @@ class PositivityPreservingEnergy(PositivityPreserving):
 		# srhoE = physics.get_state_slice(self.var_name2)
 		rhoE_bar = physics.compute_variable(self.var_name2, U_bar)
 
-		if np.any(rhoE_bar < 0.) or np.any(rhoi_bar < 0.):
-			raise errors.NotPhysicalError
+		if np.any(rhoi_bar < -POS_TOL):
+			raise errors.NotPhysicalError("Negative element species partial density.")
+		elif np.any(rhoE_bar < -POS_TOL):
+			raise errors.NotPhysicalError("Negative element internal energy.")
 
 		# Ignore divide-by-zero
 		np.seterr(divide='ignore')
