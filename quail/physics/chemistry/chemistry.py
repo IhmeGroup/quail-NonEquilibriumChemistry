@@ -71,8 +71,8 @@ class Chemistry(base.PhysicsBase):
     '''
     PHYSICS_TYPE = general.PhysicsType.Chemistry
 
-    def __init__(self, mesh):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.R = 0.
         self.gamma = 0.
         self.qo = 0.
@@ -88,7 +88,7 @@ class Chemistry(base.PhysicsBase):
         })
 
     def set_physical_params(self, GasConstant=287., SpecificHeatRatio = 1.4,
-            HeatRelease = 0.):
+            HeatRelease = 0., **kwargs):
         self.R = GasConstant
         self.gamma = SpecificHeatRatio
         self.qo = HeatRelease

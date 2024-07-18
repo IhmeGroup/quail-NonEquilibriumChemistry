@@ -509,7 +509,6 @@ class PhysicsBase(ABC):
 
         return slc
 
-    @abstractmethod
     def get_state_from_primitives(self, **kwargs):
         '''
         This method computes the state vector from a set of primitive variables.

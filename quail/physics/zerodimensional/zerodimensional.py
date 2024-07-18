@@ -136,7 +136,7 @@ class ModelPSRScalar(ZeroDimensional):
 	class StateVariables(Enum):
 		Scalar = "T"
 
-	def set_physical_params(self, T_ad=1.15, T_in=0.15, T_a=1.8):
+	def set_physical_params(self, T_ad=1.15, T_in=0.15, T_a=1.8, **kwargs):
 		'''
 		This method sets physical parameters.
 
@@ -186,7 +186,7 @@ class Pendulum(ZeroDimensional):
 		Scalar = "$\\theta$"
 		Scalar2 = "$\\frac{d\\theta}{dt}$"
 
-	def set_physical_params(self, g=9.81, l=0.6):
+	def set_physical_params(self, g=9.81, l=0.6, **kwargs):
 		'''
 		This method sets physical parameters.
 
@@ -243,7 +243,7 @@ class MultispeciesPSR(ZeroDimensional):
 		Y_N2 = "$Y_{N2}$"
 
 	def set_physical_params(self, P=80.*ct.one_atm, Tu=875.,
-			phi=0.5, tau=2.e-6):
+			phi=0.5, tau=2.e-6, **kwargs):
 		'''
 		This method sets physical parameters for the multispecies
 		PSR problem.

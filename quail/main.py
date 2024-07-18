@@ -152,7 +152,7 @@ def set_physics(mesh, physics_type, thermo, transport):
     else:
         raise NotImplementedError
 
-    physics = physics_class(thermo, transport, ndims)
+    physics = physics_class(thermo=thermo, transport=transport, NDIMS=ndims)
 
     return physics
 

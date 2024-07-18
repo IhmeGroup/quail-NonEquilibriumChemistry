@@ -62,8 +62,8 @@ class ConstAdvScalar(base.PhysicsBase):
 	NUM_STATE_VARS = 1
 	PHYSICS_TYPE = general.PhysicsType.ConstAdvScalar
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
 		self.c = 0.
 		self.cspeed = 0.
 
@@ -128,7 +128,7 @@ class ConstAdvScalar1D(ConstAdvScalar):
 		self.exact_fcn_map.update(d)
 		self.BC_fcn_map.update(d)
 
-	def set_physical_params(self, ConstVelocity=1.):
+	def set_physical_params(self, ConstVelocity=1., **kwargs):
 		'''
 		This method sets physical parameters.
 
@@ -153,8 +153,8 @@ class ConstAdvScalar2D(ConstAdvScalar):
 	'''
 	NDIMS = 2
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
 		self.c = np.zeros(2)
 		self.cspeed = 0.
 
@@ -173,7 +173,7 @@ class ConstAdvScalar2D(ConstAdvScalar):
 		self.exact_fcn_map.update(d)
 		self.BC_fcn_map.update(d)
 
-	def set_physical_params(self, ConstXVelocity=1., ConstYVelocity=1.):
+	def set_physical_params(self, ConstXVelocity=1., ConstYVelocity=1., **kwargs):
 		'''
 		This method sets physical parameters.
 
@@ -223,8 +223,8 @@ class ConstAdvDiffScalar(base.PhysicsBase):
 	NUM_STATE_VARS = 1
 	PHYSICS_TYPE = general.PhysicsType.ConstAdvDiffScalar
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
 		self.c = 0.
 		self.cspeed = 0.
 
@@ -289,7 +289,7 @@ class ConstAdvDiffScalar1D(ConstAdvDiffScalar):
 		self.exact_fcn_map.update(d)
 		self.BC_fcn_map.update(d)
 
-	def set_physical_params(self, ConstVelocity=1., DiffCoefficient=1.):
+	def set_physical_params(self, ConstVelocity=1., DiffCoefficient=1., **kwargs):
 		'''
 		This method sets physical parameters.
 
@@ -320,8 +320,8 @@ class ConstAdvDiffScalar2D(ConstAdvDiffScalar):
 	'''
 	NDIMS = 2
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
 		self.c = np.zeros(2)
 		self.cspeed = 0.
 		self.al = np.zeros(2)
@@ -338,7 +338,7 @@ class ConstAdvDiffScalar2D(ConstAdvDiffScalar):
 		self.BC_fcn_map.update(d)
 
 	def set_physical_params(self, ConstXVelocity=1., ConstYVelocity=1.,
-			DiffCoefficientX=1., DiffCoefficientY=1.):
+			DiffCoefficientX=1., DiffCoefficientY=1., **kwargs):
 		'''
 		This method sets physical parameters.
 
