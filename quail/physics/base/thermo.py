@@ -149,17 +149,19 @@ class ThermoBase(ABC):
         return np.sqrt(self.gamma*self.dpdrho)
 
     @property
-    def p_jac(self):
+    def p_jacobian(self):
         raise NotImplementedError("Current thermodynamic model does " +
                                   "not implement pressure derivatives.")
+
+    @property
+    def T_jacobian(self):
+        raise NotImplementedError("Current thermodynamic model does " +
+                                  "not implement temperature derivatives.")
 
     @property
     def dpdrho(self):
-        raise NotImplementedError("Current thermodynamic model does " +
-                                  "not implement pressure derivatives.")
-
-    @property
-    def dpde(self):
+        """Derivative of pressure with respect to density at constant
+        temperature."""
         raise NotImplementedError("Current thermodynamic model does " +
                                   "not implement pressure derivatives.")
 
@@ -205,18 +207,41 @@ class CaloricallyPerfectGas(ThermoBase):
         # Alternate way
         return np.log(self.p / self.rho**self.gamma)
 
-    @property
-    def p_jac(self):
-        if self.inputs == 'rhoi_e':
+    def p_jacobian(self, independent_variables=None):
+        if independent_variables is None:
+            independent_variables = self.inputs
+
+        if independent_variables == 'rhoi_e':
             dpdrhoi = (self.gamma-1.0)*self.e
             dpde = (self.gamma-1.0)*self.rho
             return dpdrhoi, dpde
-        elif self.inputs == 'rhoi_T':
-            return self.p/self.rho, self.p/self.T
-        elif self.inputs == 'rhoi_p':
+        elif independent_variables == 'rhoi_T':
+            dpdrhoi = self.p/self.rho
+            dpdT = self.p/self.T
+            return dpdrhoi, dpdT
+        elif independent_variables == 'rhoi_p':
             return 0.0, 1.0
-        elif self.inputs == 'Y_T_P':
+        elif independent_variables == 'Y_T_P':
             return 0.0, 0.0, 1.0
+        else:
+            raise NotImplementedError
+
+    def T_jacobian(self, independent_variables=None):
+        if independent_variables is None:
+            independent_variables = self.inputs
+
+        if independent_variables == 'rhoi_e':
+            dTdrhoi = 0.0
+            dTde = 1.0/self.cv
+            return dTdrhoi, dTde
+        elif independent_variables == 'rhoi_T':
+            return 0.0, 1.0
+        elif independent_variables == 'rhoi_p':
+            dTdrhoi = -self.T/self.rho
+            dTdp = self.T/self.p
+            return dTdrhoi, dTdp
+        elif independent_variables == 'Y_T_P':
+            return 0.0, 1.0, 0.0
         else:
             raise NotImplementedError
 
@@ -298,13 +323,14 @@ class CanteraThermo(ThermoBase):
         self.gas.basis = 'mass'
         self.species_names = self.gas.species_names
         self.default_Y = self.gas.Y
+        self.Wi = self.gas.molecular_weights[None, None, :]
 
         if self.OffsetEnergy:
             # Store the reference internal energies which bound the minimum
             # temperature for the reference pressure
             Tref = self.gas.min_temp
             self.gas.TP = Tref, self.gas.reference_pressure
-            self.eref = (self.gas.partial_molar_int_energies / self.gas.molecular_weights)[None, None, :]
+            self.eref = self.gas.partial_molar_int_energies[None, None, :] / self.Wi
 
         self.solution = self.gas
 
@@ -343,10 +369,6 @@ class CanteraThermo(ThermoBase):
         return np.atleast_3d(self.solution.entropy_mass)
 
     @property
-    def c(self):
-        return np.sqrt(self.gamma*self.p/self.rho)
-
-    @property
     def Y(self):
         return self.solution.Y
 
@@ -361,6 +383,49 @@ class CanteraThermo(ThermoBase):
     @property
     def gamma(self):
         return self.cp / self.cv
+
+    def p_jacobian(self, independent_variables=None):
+        if independent_variables is None:
+            independent_variables = self.inputs
+
+        if independent_variables == 'rhoi_e':
+            e = np.atleast_3d(self.solution.int_energy_mass)
+            ei = self.solution.partial_molar_int_energies / self.Wi
+            Wm = np.atleast_3d(self.solution.mean_molecular_weight)
+            dpdrhoi = self.Ru*(self.T/self.Wi + (e-ei)/(Wm*self.cv))
+            dpde = self.p/(self.cv * self.T)
+            return dpdrhoi, dpde
+        elif independent_variables == 'rhoi_T':
+            dpdrhoi = self.Ru*self.T/self.Wi
+            dpdT = self.p/self.T
+            return dpdrhoi, dpdT
+        elif independent_variables == 'rhoi_p':
+            return 0.0, 1.0
+        elif independent_variables == 'Y_T_P':
+            return 0.0, 0.0, 1.0
+        else:
+            raise NotImplementedError
+
+    def T_jacobian(self, independent_variables=None):
+        if independent_variables is None:
+            independent_variables = self.inputs
+
+        if independent_variables == 'rhoi_e':
+            e = np.atleast_3d(self.solution.int_energy_mass)
+            ei = self.solution.partial_molar_int_energies / self.Wi
+            dTdrhoi = (ei-e)/(self.rho*self.cv)
+            dTde = 1.0/self.cv
+            return dTdrhoi, dTde
+        elif independent_variables == 'rhoi_T':
+            return 0.0, 1.0
+        elif independent_variables == 'rhoi_p':
+            dTdrhoi = -self.T/self.rho
+            dTdp = self.T/self.p
+            return dTdrhoi, dTdp
+        elif independent_variables == 'Y_T_P':
+            return 0.0, 1.0, 0.0
+        else:
+            raise NotImplementedError
 
     @property
     def dpdrho(self):

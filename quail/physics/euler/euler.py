@@ -446,14 +446,15 @@ class Euler(base.PhysicsBase):
         self.set_thermo_state(Uq)
 
         # Compute the pressure derivatives w.r.t. the primitive variables
-        dpdrhoi, dpde = self.thermo.p_jac
+        dpdrhoi, dpde = self.thermo.p_jacobian(independent_variables='rhoi_e')
 
         # Compute the primitive variable derivatives w.r.t. the conservative variables
         srho, srhou, srhoE = self.get_state_slices()
         rho = self.thermo.rho
         rhou = Uq[:, :, srhou]
+        rhoE = Uq[:, :, srhoE]
 
-        dedrho = (self.kinetic_energy/rho - self.thermo.e) / rho
+        dedrho = ((rhou**2).sum(axis=2, keepdims=True)/rho - rhoE)/rho**2
         dedrhou = -rhou / rho**2
         dedrhoE = 1.0 / rho
 
@@ -465,6 +466,48 @@ class Euler(base.PhysicsBase):
 
         # Multiply with dU/dx
         return np.einsum('ijk, ijkl -> ijl', dpdU, grad_Uq)
+
+    def compute_temperature_gradient(self, Uq, grad_Uq):
+        '''
+        Compute the gradient of temperature with respect to physical space. This is
+        needed for heat transfer.
+
+        Inputs:
+        -------
+            Uq: solution in each element evaluated at quadrature points
+            [ne, nq, ns]
+            grad_Uq: gradient of solution in each element evaluted at quadrature
+                points [ne, nq, ns, ndims]
+
+        Outputs:
+        --------
+            array: gradient of temperature with respected to physical space
+                [ne, nq, ndims]
+        '''
+        # Set the thermodynamic state
+        self.set_thermo_state(Uq)
+
+        # Compute the temperature derivatives w.r.t. the primitive variables
+        dTdrhoi, dTde = self.thermo.T_jacobian(independent_variables='rhoi_e')
+
+        # Compute the primitive variable derivatives w.r.t. the conservative variables
+        srho, srhou, srhoE = self.get_state_slices()
+        rho = self.thermo.rho
+        rhou = Uq[:, :, srhou]
+        rhoE = Uq[:, :, srhoE]
+
+        dedrho = ((rhou**2).sum(axis=2, keepdims=True)/rho - rhoE)/rho**2
+        dedrhou = -rhou / rho**2
+        dedrhoE = 1.0 / rho
+
+        # Compute dp/dU
+        dTdU = np.empty_like(Uq)
+        dTdU[:, :, srho] = dTdrhoi + dedrho * dTde
+        dTdU[:, :, srhou] = dedrhou * dTde
+        dTdU[:, :, srhoE] = dedrhoE * dTde
+
+        # Multiply with dU/dx
+        return np.einsum('ijk, ijkl -> ijl', dTdU, grad_Uq)
 
     def get_conv_flux_interior(self, Uq):
         # Set the thermodynamic state

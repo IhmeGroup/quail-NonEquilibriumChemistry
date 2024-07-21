@@ -114,24 +114,11 @@ class NavierStokes(euler.Euler):
         kappa = self.transport.get_thermal_conductivity(self.thermo)
         nu = mu / rho
 
-        gamma = self.thermo.gamma
-        R = self.thermo.R
-
-        # Set constants for stress tensor
-        C1 = 2. / 3.
-        C2 = (gamma - 1.) / (R * rho)
-
         # Get velocity in each dimension
         u = self.velocity
 
-        # Get E
-        e = self.thermo.e
-
-        # Store dTdU
-        dTdU = np.zeros_like(Uq)
-        dTdU[:, :, srho] = C2 * -e
-        dTdU[:, :, srhou] = C2 * -u
-        dTdU[:, :, srhoE] = C2
+        # Compute spatial gradient of temperature
+        gT = self.compute_temperature_gradient(Uq, gUq)
 
         # Get density and momentum gradients
         grho = gUq[:, :, srho, :].sum(axis=2, keepdims=True)
@@ -140,12 +127,16 @@ class NavierStokes(euler.Euler):
         # Get the stress tensor (use product rules to write in
         # terms of the conservative gradients)
         # rho * dui/dxj = drhoui/dxj - ui * drho/dxj
-        idx_diag = 2*(tuple(range(self.NDIMS)),)
-        rhodiv = grhou[:, :, *idx_diag].sum(axis=2, keepdims=True)
-
         rho_gu = grhou - u[..., None]*grho
         tauij = rho_gu + np.swapaxes(rho_gu, 2, 3)
-        tauij[:, :, *idx_diag] -= C1*rhodiv
+
+        # Subtract rho*duk/dxk = drhouk/dxk - uk*drho/dxk
+        idx_diag = 2*(tuple(range(self.NDIMS)),)
+        rhodiv = (grhou[:, :, *idx_diag] - u*grho[:, :, 0, :]
+                  ).sum(axis=2, keepdims=True)
+        tauij[:, :, *idx_diag] -= 2.0/3.0 * rhodiv
+
+        # Multiply by mu / rho
         tauij *= nu[...,None]
 
         # Assemble flux matrix
@@ -153,6 +144,6 @@ class NavierStokes(euler.Euler):
         F[:,:,srho, :] = 0.		# x,y-flux of rho (zero both dir)
         F[:,:,srhou,:] = tauij  # Stress tensor
         F[:,:,srhoE,:] = (u[..., None] * tauij).sum(axis=2, keepdims=True) + \
-            (kappa * np.einsum('ijk, ijkl -> ijl', dTdU, gUq))[:,:,None,:]
+            (kappa * gT)[:,:,None,:]
 
         return F # [n, nq, ns, ndims]

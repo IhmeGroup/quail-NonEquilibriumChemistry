@@ -40,10 +40,9 @@ def test_diffusion_flux_2D():
 	physics.thermo.set_state_from_rhoi_e(Uq[..., srho], e)
 	mu = physics.transport.get_viscosity(physics.thermo)
 	kappa = physics.transport.get_thermal_conductivity(physics.thermo)
-	nu = mu / rho
 
 	# Get temperature
-	T = physics.compute_variable("Temperature", Uq, 
+	T = physics.compute_variable("Temperature", Uq,
 		flag_non_physical=True)[0, 0, 0]
 
 	np.random.seed(10)
@@ -51,7 +50,7 @@ def test_diffusion_flux_2D():
 	drdy = np.random.rand()
 	dudx = np.random.rand()
 	dudy = np.random.rand()
-	dvdx = np.random.rand() 
+	dvdx = np.random.rand()
 	dvdy = np.random.rand()
 	divu = dudx + dvdy
 	dTdx = np.random.rand()
@@ -128,10 +127,8 @@ def test_diffusion_flux_2D_zero_velocity():
 	mu = mu[0,0,0]
 	kappa = kappa[0,0,0]
 
-	nu = mu / rho
-
 	# Get temperature
-	T = physics.compute_variable("Temperature", Uq, 
+	T = physics.compute_variable("Temperature", Uq,
 		flag_non_physical=True)[0, 0, 0]
 
 	np.random.seed(10)
