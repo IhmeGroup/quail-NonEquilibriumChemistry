@@ -1014,7 +1014,7 @@ class Roe1D(ConvNumFluxBase):
         self.evals = np.zeros_like(Uq)
         self.R = np.zeros([n, nq, ns, ns])
 
-    def rotate_coord_sys(self, srhou, Uq, n):
+    def rotate_coord_sys(self, srhou, Uq, R):
         '''
         This method expresses the momentum vector in the rotated coordinate
         system, which is aligned with the face normal and tangent.
@@ -1034,32 +1034,7 @@ class Roe1D(ConvNumFluxBase):
         Uq: ndarray
             momentum terms modified
         '''
-        Uq[:, :, srhou] *= n
-
-        return Uq
-
-    def undo_rotate_coord_sys(self, srhou, Uq, n):
-        '''
-        This method expresses the momentum vector in the standard coordinate
-        system. It "undoes" the rotation above.
-
-        Parameters
-        ----------
-        srhou: slice
-            Indices of momentum components.
-        Uq: ndarray
-            Values of the state variable (typically at the quadrature points),
-            with shape `(nf, nq, ns)`.
-        n: ndarray
-            Normal vectors (typically at the quadrature points), with shape
-            `(nf, nq, ndims)`.
-
-        Returns
-        -------
-        Uq: ndarray
-            Momentum terms modified.
-        '''
-        Uq[:, :, srhou] /= n
+        Uq[:, :, srhou] = np.einsum('ijkl, ijl -> ijk', R, Uq[:, :, srhou])
 
         return Uq
 
@@ -1258,17 +1233,16 @@ class Roe1D(ConvNumFluxBase):
         # Unpack
         srhou = physics.get_state_slice("Momentum")
 
-        # Unit normals
-        n_mag = np.linalg.norm(normals, axis=2, keepdims=True)
-        n_hat = normals/n_mag
+        # Get unit normals and rotation matrices
+        n_mag, n_hat, R, invR = self.compute_rotation_matrices(normals)
 
         # Copy values from standard coordinate system before rotating
         UqL = UqL_std.copy()
         UqR = UqR_std.copy()
 
         # Rotated coordinate system
-        UqL = self.rotate_coord_sys(srhou, UqL, n_hat)
-        UqR = self.rotate_coord_sys(srhou, UqR, n_hat)
+        UqL = self.rotate_coord_sys(srhou, UqL, R)
+        UqR = self.rotate_coord_sys(srhou, UqR, R)
 
         # Get left state
         physics.set_thermo_state(UqL)
@@ -1326,13 +1300,13 @@ class Roe1D(ConvNumFluxBase):
         # 	evals[fix_shape] / eps[fix_shape])
 
         # Right eigenvector matrix
-        R = self.get_right_eigenvectors(c, evals, velRoe, HRoe)
+        eigvecR = self.get_right_eigenvectors(c, evals, velRoe, HRoe)
 
         # Form flux Jacobian matrix multiplied by dU
-        FRoe = np.einsum('ijkl, ijl -> ijk', R, np.abs(evals)*alphas)
+        FRoe = np.einsum('ijkl, ijl -> ijk', eigvecR, np.abs(evals)*alphas)
 
         # Undo rotation
-        FRoe = self.undo_rotate_coord_sys(srhou, FRoe, n_hat)
+        FRoe = self.rotate_coord_sys(srhou, FRoe, invR)
 
         # Left flux
         FL, _ = physics.get_conv_flux_projected(UqL_std, n_hat)
@@ -1350,29 +1324,6 @@ class Roe2D(Roe1D):
     In this class, several methods are updated to account for the extra
     dimension.
     '''
-    def rotate_coord_sys(self, srhou, Uq, n):
-        vel = self.vel
-        vel[:] = Uq[:, :, srhou]
-
-        vel[:, :, 0] = np.sum(Uq[:, :, srhou]*n, axis=2)
-        vel[:, :, 1] = np.sum(Uq[:, :, srhou]*n[:, :, ::-1]*np.array([[-1.,
-                1.]]), axis=2)
-
-        Uq[:, :, srhou] = vel
-
-        return Uq
-
-    def undo_rotate_coord_sys(self, srhou, Uq, n):
-        vel = self.vel
-        vel[:] = Uq[:, :, srhou]
-
-        vel[:, :, 0] = np.sum(Uq[:, :, srhou]*n*np.array([[1., -1.]]), axis=2)
-        vel[:, :, 1] = np.sum(Uq[:, :, srhou]*n[:, :, ::-1], axis=2)
-
-        Uq[:, :, srhou] = vel
-
-        return Uq
-
     def get_alphas(self, c, c2, dp, dvel, drho, rhoRoe):
         alphas = self.alphas
 

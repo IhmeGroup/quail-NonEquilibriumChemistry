@@ -262,6 +262,58 @@ class ConvNumFluxBase(ABC):
 		'''
 		self.__init__(Uq)
 
+	def compute_rotation_matrices(self, normals):
+		'''
+		This method computes a rotation matrix which aligns the face normal
+		directions with the first dimension and its inverse.
+
+		Inputs:
+		-------
+			normals: directions from left to right [n, nq, ndims]
+
+		Outputs:
+		--------
+			nmag: Magnitude of input normal vectors [n, nq, 1]
+			nhat: Unit normal vector
+			R: Rotation matrix [n, nq, ndims, ndims]
+			invR: Inverse of rotation matrix [n, nq, ndims, ndims]
+		'''
+		n, nq, ndims = normals.shape
+
+		# Normalize the normal vectors
+		nmag = np.linalg.norm(normals, axis=2, keepdims=True)
+		nhat = normals / nmag
+
+		# Initialize the rotation matrix to be identity matrix
+		R = np.zeros((n, nq, ndims, ndims))
+
+		# We could use a general method for both 2D and 3D given here:
+		# https://math.stackexchange.com/a/476311
+
+		# However, rotating nhat onto e1 simplifies down to the following:
+		idx_diag = 2*(tuple(range(ndims)),)
+		nx = nhat[..., [0]]
+		R[..., *idx_diag] = nx
+
+		if ndims == 2:
+			ny = nhat[..., [1]]
+			R[..., (0,), (1,)] = ny
+			R[..., (1,), (0,)] = -ny
+
+		elif ndims == 3:
+			nyz = nhat[..., (1, 2)]
+
+			R[..., 0, 1:] = nyz
+			R[..., 1:, 0] = -nyz
+
+			temp = nyz[..., ::-1, None]*nyz[..., None, ::-1]/(np.maximum(nx + 1.0, 1e-30))
+			temp[..., (0, 1), (1, 0)] *= -1
+
+			R[..., 1:, 1:] += temp
+
+		# R^-1 = R.T, so we simply swap the last two axes and return a view
+		return nmag, nhat, R, np.swapaxes(R, 2, 3)
+
 	@abstractmethod
 	def compute_flux(self, physics, UqL, UqR, normals):
 		'''
