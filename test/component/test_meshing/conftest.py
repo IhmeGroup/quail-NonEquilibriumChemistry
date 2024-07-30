@@ -1,9 +1,7 @@
 import pytest
 import numpy as np
-import sys
-sys.path.append('../src')
 
-import meshing.meshbase as mesh_defs
+import quail.meshing.meshbase as mesh_defs
 
 def make_empty_mesh():
 	'''

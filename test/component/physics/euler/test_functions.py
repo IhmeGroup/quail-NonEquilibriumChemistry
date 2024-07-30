@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
-import sys
-sys.path.append('../src')
 
-import physics.euler.euler as euler
+import quail.physics.euler.euler as euler
+import quail.physics.base.thermo as thermo
 
 rtol = 1e-15
 atol = 1e-15
@@ -18,7 +17,7 @@ def test_numerical_flux_1D_consistency(conv_num_flux_type):
 	This test ensures that the 1D numerical flux functions are 
 	consistent, .e. F_numerical(u, u, n) = F(u) dot n
 	'''
-	physics = euler.Euler1D()
+	physics = euler.Euler(thermo=thermo.CaloricallyPerfectGas(), transport=None, NDIMS=1)
 	physics.set_conv_num_flux(conv_num_flux_type)
 	physics.set_physical_params()
 
@@ -28,7 +27,7 @@ def test_numerical_flux_1D_consistency(conv_num_flux_type):
 	P = 101325.
 	rho = 1.1
 	u = 2.5
-	gamma = physics.gamma
+	gamma = physics.thermo.gamma
 	rhoE = P / (gamma - 1.) + 0.5 * rho * u * u
 
 	irho, irhou, irhoE = physics.get_state_indices()
@@ -62,7 +61,7 @@ def test_numerical_flux_1D_conservation(conv_num_flux_type):
 	conservative, i.e. 
 	F_numerical(uL, uR, n) = -F_numerical(uR, uL, -n)
 	'''
-	physics = euler.Euler1D()
+	physics = euler.Euler(thermo=thermo.CaloricallyPerfectGas(), transport=None, NDIMS=1)
 	physics.set_conv_num_flux(conv_num_flux_type)
 	physics.set_physical_params()
 
@@ -75,7 +74,7 @@ def test_numerical_flux_1D_conservation(conv_num_flux_type):
 	P = 101325.
 	rho = 1.1
 	u = 2.5
-	gamma = physics.gamma
+	gamma = physics.thermo.gamma
 	rhoE = P / (gamma - 1.) + 0.5 * rho * u * u
 
 	UqL[:, :, irho] = rho
@@ -116,7 +115,7 @@ def test_numerical_flux_2D_consistency(conv_num_flux_type):
 	This test ensures that the 2D numerical flux functions are 
 	consistent, .e. F_numerical(u, u, n) = F(u) dot n
 	'''
-	physics = euler.Euler2D()
+	physics = euler.Euler(thermo=thermo.CaloricallyPerfectGas(), transport=None, NDIMS=2)
 	physics.set_conv_num_flux(conv_num_flux_type)
 	physics.set_physical_params()
 
@@ -127,15 +126,14 @@ def test_numerical_flux_2D_consistency(conv_num_flux_type):
 	rho = 1.1
 	u = 2.5
 	v = -3.5
-	gamma = physics.gamma
+	gamma = physics.thermo.gamma
 	rhoE = P / (gamma - 1.) + 0.5 * rho * (u * u + v * v)
 
-	irho, irhou, irhov, irhoE = physics.get_state_indices()
+	srho, srhou, srhoE = physics.get_state_slices()
 
-	UqL[:, :, irho] = rho
-	UqL[:, :, irhou] = rho * u
-	UqL[:, :, irhov] = rho * v
-	UqL[:, :, irhoE] = rhoE
+	UqL[:, :, srho] = rho
+	UqL[:, :, srhou] = [rho * u, rho * v]
+	UqL[:, :, srhoE] = rhoE
 
 	UqR = UqL.copy()
 
@@ -163,27 +161,26 @@ def test_numerical_flux_2D_conservation(conv_num_flux_type):
 	conservative, i.e. 
 	F_numerical(uL, uR, n) = -F_numerical(uR, uL, -n)
 	'''
-	physics = euler.Euler2D()
+	physics = euler.Euler(thermo=thermo.CaloricallyPerfectGas(), transport=None, NDIMS=2)
 	physics.set_conv_num_flux(conv_num_flux_type)
 	physics.set_physical_params()
 
 	UqL = np.zeros([1, 1, physics.NUM_STATE_VARS])
 	UqR = UqL.copy()
 
-	irho, irhou, irhov, irhoE = physics.get_state_indices()
+	srho, srhou, srhoE = physics.get_state_slices()
 
 	# Left state
 	P = 101325.
 	rho = 1.1
 	u = 2.5
 	v = -3.5
-	gamma = physics.gamma
+	gamma = physics.thermo.gamma
 	rhoE = P / (gamma - 1.) + 0.5 * rho * (u * u + v * v)
 
-	UqL[:, :, irho] = rho
-	UqL[:, :, irhou] = rho * u
-	UqL[:, :, irhov] = rho * v
-	UqL[:, :, irhoE] = rhoE
+	UqL[:, :, srho] = rho
+	UqL[:, :, srhou] = [rho * u, rho * v]
+	UqL[:, :, srhoE] = rhoE
 
 	# Right state
 	P = 101325*2.
@@ -192,10 +189,9 @@ def test_numerical_flux_2D_conservation(conv_num_flux_type):
 	v = -6.
 	rhoE = P / (gamma - 1.) + 0.5 * rho * (u * u + v * v)
 
-	UqR[:, :, irho] = rho
-	UqR[:, :, irhou] = rho * u
-	UqR[:, :, irhov] = rho * v
-	UqR[:, :, irhoE] = rhoE
+	UqR[:, :, srho] = rho
+	UqR[:, :, srhou] = [rho * u, rho * v]
+	UqR[:, :, srhoE] = rhoE
 
 	# Normals
 	normals = np.zeros([1, 1, 2])

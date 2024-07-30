@@ -1,18 +1,13 @@
 import numpy as np
-import pytest
-import os
-import pickle
-import subprocess
-import sys
-sys.path.append('../src')
 
-import general
-import meshing.common as mesh_common
-import meshing.tools as mesh_tools
-import numerics.helpers.helpers as helpers
-import numerics.limiting.positivitypreserving as positivitypreserving
-import physics.euler.euler as euler
-import solver.DG as DG
+import quail.general as general
+import quail.meshing.common as mesh_common
+import quail.meshing.tools as mesh_tools
+import quail.numerics.helpers.helpers as helpers
+import quail.numerics.limiting.positivitypreserving as positivitypreserving
+import quail.physics.euler.euler as euler
+import quail.physics.base.thermo as thermo
+import quail.solver.DG as DG
 
 rtol = 1e-15
 atol = 1e-15
@@ -31,7 +26,10 @@ def create_solver_object():
 			SolutionBasis="LagrangeSeg",
 			ApplyLimiters=["PositivityPreserving"])
 
-	physics = euler.Euler1D()
+	physics = euler.Euler(
+		thermo=thermo.CaloricallyPerfectGas(),
+		transport=None, NDIMS=1
+	)
 	physics.set_conv_num_flux("Roe")
 	physics.set_physical_params()
 	U = np.array([1., 0., 1.])
@@ -95,7 +93,7 @@ def test_positivity_preserving_limiter_solution_positive_density():
 	Uc = solver.state_coeffs
 
 	# Modify solution to have negative density
-	srho = solver.physics.get_state_slice("Density")
+	srho, _, _ = solver.physics.get_state_slices()
 	Uc[:, 1:2, srho] = -0.1
 
 	# Compute mean density of original solution
@@ -125,7 +123,7 @@ def test_positivity_preserving_limiter_solution_positive_pressure():
 	Uc = solver.state_coeffs
 
 	# Modify solution to have negative pressure
-	srhoE = solver.physics.get_state_slice("Energy")
+	_, _, srhoE = solver.physics.get_state_slices()
 	Uc[:, 1:2, srhoE] = -0.25
 
 	# Compute mean pressure of original solution

@@ -1,11 +1,8 @@
 import numpy as np
 import os
-import pytest
-import sys
-sys.path.append('../src')
 
-import meshing.gmsh as mesh_gmsh
-import meshing.tools as mesh_tools
+import quail.meshing.gmsh as mesh_gmsh
+import quail.meshing.tools as mesh_tools
 
 rtol = 1e-15
 atol = 1e-15

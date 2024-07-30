@@ -3,15 +3,13 @@ import pytest
 import os
 import pickle
 import subprocess
-import sys
-sys.path.append('../src')
 
 import list_of_cases
-import physics.euler.euler as euler
-import physics.scalar.scalar as scalar
-import physics.chemistry.chemistry as chemistry
-import solver.DG as DG
-import solver.ADERDG as ADERDG
+import quail.physics.euler.euler as euler
+import quail.physics.scalar.scalar as scalar
+import quail.physics.chemistry.chemistry as chemistry
+import quail.solver.DG as DG
+import quail.solver.ADERDG as ADERDG
 
 # Tolerances
 
@@ -46,7 +44,7 @@ def test_case(test_data):
 
 	# Call the Quail executable
 	result = subprocess.check_output([
-			f'{quail_dir}/src/quail', 'input_file.py',
+			f'{quail_dir}/quail/main.py', 'input_file.py',
 			], stderr=subprocess.STDOUT)
 	# Print results of run
 	print(result.decode('utf-8'))
@@ -57,4 +55,4 @@ def test_case(test_data):
 		solver = pickle.load(f)
 		Uc = solver.state_coeffs
 		# Assert
-		np.testing.assert_allclose(Uc, Uc_expected, rtol, atol)
+		np.testing.assert_allclose(Uc, Uc_expected, list_of_cases.rtol, list_of_cases.atol)

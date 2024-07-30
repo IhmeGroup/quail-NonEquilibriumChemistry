@@ -1,11 +1,9 @@
 import numpy as np
 import pytest
-import sys
-sys.path.append('../src')
 
-import numerics.basis.basis as basis_defs
-import numerics.basis.ader_tools as basis_st_tools
-import meshing.common as mesh_common
+import quail.numerics.basis.basis as basis_defs
+import quail.numerics.basis.ader_tools as basis_st_tools
+import quail.meshing.common as mesh_common
 
 rtol = 1e-14
 atol = 1e-14

@@ -29,7 +29,7 @@ Physics = {
 	"ConvFluxNumerical" : "Roe",
 	"DiffFluxNumerical" : "SIP",
 	"GasConstant" : 1.0,
-	"Transport" : "Constant",
+	"TransportModel" : "Constant",
 	"Viscosity" : 1e-1,
 	"PrandtlNumber" : 0.71,
 }

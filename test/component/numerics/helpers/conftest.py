@@ -1,7 +1,4 @@
-import numpy as np
 import pytest
-import sys
-sys.path.append('../src')
 
 @pytest.fixture
 def basis(Basis, order):

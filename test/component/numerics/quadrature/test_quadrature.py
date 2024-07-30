@@ -1,14 +1,11 @@
 import numpy as np
 import pytest
-import sys
-sys.path.append('../src')
 
-import numerics.basis.basis as basis_defs
-from numerics.quadrature import segment, quadrilateral, triangle, \
-		hexahedron, prism
-import general
-
-import meshing.common as mesh_common
+import quail.numerics.basis.basis as basis_defs
+from quail.numerics.quadrature import (
+	segment, quadrilateral, triangle, hexahedron, prism
+)
+import quail.general as general
 
 rtol = 1e-13
 atol = 1e-14
