@@ -247,7 +247,8 @@ def plot_2D_general(physics, x, xc, triangles, var_plot, **kwargs):
         tris, utri = triangulate(physics, x[elem_ID], var_plot[elem_ID],
                                  triangles)
         # Plot
-        plt.tricontourf(tris, utri, levels=levels, extend="both")
+        contour = plt.tricontourf(tris, utri, levels=levels, extend="both")
+        contour.set_edgecolor("face")
         # Show triangulation if requested
         if "show_triangulation" in kwargs:
             if kwargs["show_triangulation"]:
