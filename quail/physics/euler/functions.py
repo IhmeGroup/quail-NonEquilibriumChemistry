@@ -52,7 +52,11 @@ class BCType(Enum):
     boundary conditions are specific to the available Euler equation sets.
     '''
     SlipWall = auto()
+    SlipWallRiemann = auto()
     PressureOutlet = auto()
+    AdiabaticWall = auto()
+    IsothermalWall = auto()
+    IsothermalWallRiemann = auto()
 
 
 class SourceType(Enum):
@@ -709,6 +713,26 @@ class SlipWall(BCWeakPrescribed):
         return UqB
 
 
+class SlipWallRiemann(BCWeakRiemann):
+    '''
+    This class corresponds to a slip wall. See documentation for more
+    details.
+    '''
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+        srhou = physics.get_state_slice("Momentum")
+
+        # Unit normals
+        n_hat = normals/np.linalg.norm(normals, axis=2, keepdims=True)
+
+        # Remove momentum contribution in normal direction from boundary
+        # state
+        rhoveln = np.sum(UqI[:, :, srhou] * n_hat, axis=2, keepdims=True)
+        UqB = UqI.copy()
+        UqB[:, :, srhou] -= 2.0*rhoveln*n_hat
+
+        return UqB
+
+
 class PressureOutlet(BCWeakPrescribed):
     '''
     This class corresponds to an outflow boundary condition with static
@@ -789,6 +813,183 @@ class PressureOutlet(BCWeakPrescribed):
         # Boundary energy
         rhovel2B = rhoB*np.sum(velB**2., axis=2, keepdims=True)
         UqB[:, :, srhoE] = pB/(gamma - 1.) + 0.5*rhovel2B
+
+        return UqB
+
+
+class AdiabaticWall(BCWeakPrescribed):
+    '''
+    This class corresponds to a viscous wall with zero heat flux
+    (adiabatic). See documentation for more details.
+    '''
+
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        _, srhou, srhoE = physics.get_state_slices()
+
+        # Boundary densities = interior densities
+        rhoiI = physics.compute_variable("Densities", UqI)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError("Negative densities at adiabatic wall.")
+
+        # Boundary temperature = interior temperature (q=0)
+        TI = physics.compute_variable("Temperature", UqI)
+        if np.any(TI < 0.):
+            raise errors.NotPhysicalError("Negative temperature at adiabatic wall.")
+
+        # Set the thermodynamic state from the interior densities and temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, TI)
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        # Boundary energy
+        UqB[:, :, srhoE] = physics.thermo.rho * physics.thermo.e
+
+        return UqB
+
+
+class IsothermalWall(BCWeakPrescribed):
+    '''
+    This class corresponds to a viscous Isothermal wall. See documentation for more
+    details.
+    '''
+    def __init__(self, Twall, method=0):
+        '''
+        This method initializes the attributes.
+
+        Inputs:
+        -------
+            Twall: wall temperature
+
+        Outputs:
+        --------
+            self: attributes initialized
+        '''
+        self.Twall = Twall
+        self.method = method
+
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+
+        if self.method == 1:
+            return self.set_rhoE(physics, UqI, normals, x, t)
+        elif self.method == 2:
+            return self.set_rho(physics, UqI, normals, x, t)
+
+        return self.set_Y_T_p(physics, UqI, normals, x, t)
+
+    def set_Y_T_p(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior pressure and mass fractions
+        pI = physics.compute_variable("Pressure", UqI)
+        YI = physics.thermo.Y
+        if np.any(pI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        # wall pressure pB = pI
+        physics.thermo.set_state_from_Y_T_p(YI, self.Twall, pI)
+
+        # Boundary density
+        rhoB = physics.thermo.rho
+        UqB[:, :, srho] = rhoB * YI
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        # Boundary energy
+        rhoEB = rhoB*physics.thermo.e
+        UqB[:, :, srhoE] = rhoEB
+
+        return UqB
+
+    def set_rhoE(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior partial densities
+        rhoiI = UqI[:, :, srho]
+        YI = rhoiI / rhoiI.sum(axis=2, keepdims=True)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, self.Twall)
+
+        # Boundary density from boundary internal energy (rhoE = rhoe)
+        rhoEB = UqB[:, :, srhoE]
+        eB = physics.thermo.e
+        UqB[:, :, srho] = (rhoEB / eB) * YI
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        return UqB
+
+    def set_rho(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior partial densities
+        rhoiI = UqI[:, :, srho]
+        rhoB = rhoiI.sum(axis=2, keepdims=True)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, self.Twall)
+
+        # Boundary energy from boundary internal energy (rhoE = rhoe)
+        eB = physics.thermo.e
+        UqB[:, :, srhoE] = rhoB*eB
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        return UqB
+
+
+class IsothermalWallRiemann(BCWeakRiemann):
+    '''
+    This class corresponds to a viscous Isothermal wall. See documentation for more
+    details.
+    '''
+    def __init__(self, Twall):
+        '''
+        This method initializes the attributes.
+
+        Inputs:
+        -------
+            Twall: wall temperature
+
+        Outputs:
+        --------
+            self: attributes initialized
+        '''
+        self.Twall = Twall
+
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior partial densities
+        rhoiI = UqI[:, :, srho]
+        rhoB = rhoiI.sum(axis=2, keepdims=True)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, self.Twall)
+
+        # Flip the boundary velocity
+        rhouB = UqI[:, :, srhou]
+        UqB[:, :, srhou] = -rhouB
+
+        # Boundary energy
+        rhoEB = rhoB*physics.thermo.e + 0.5*(rhouB*rhouB).sum(axis=2, keepdims=True)/rhoB
+        UqB[:, :, srhoE] = rhoEB
 
         return UqB
 
