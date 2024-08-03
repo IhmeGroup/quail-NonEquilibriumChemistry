@@ -44,9 +44,7 @@ class BCType(Enum):
 	Enum class that stores the types of boundary conditions. These
 	boundary conditions are specific to the available Euler equation sets.
 	'''
-	IsothermalWall = auto()
-	AdiabaticWall = auto()
-
+	pass
 
 
 class SourceType(Enum):
@@ -473,83 +471,6 @@ and methods. Information specific to the corresponding child classes can be
 found below. These classes should correspond to the BCType enum members
 above.
 '''
-
-class IsothermalWall(BCWeakPrescribed):
-	'''
-	This class corresponds to a viscous Isothermal wall. See documentation for more
-	details.
-	'''
-	def __init__(self, Twall):
-		'''
-		This method initializes the attributes.
-
-		Inputs:
-		-------
-			Twall: wall temperature
-
-		Outputs:
-		--------
-		    self: attributes initialized
-		'''
-		self.Twall = Twall
-
-	def get_boundary_state(self, physics, UqI, normals, x, t):
-		UqB = UqI.copy()
-		srho, srhou, srhoE = physics.get_state_slices()
-
-		# Interior pressure and mass fractions
-		pI = physics.compute_variable("Pressure", UqI)
-		YI = physics.thermo.Y
-		if np.any(pI < 0.):
-			raise errors.NotPhysicalError
-
-		# Set the boundary thermodynamic state with the specified wall temperature
-		# wall pressure pB = pI
-		physics.thermo.set_state_from_Y_T_p(YI, self.Twall, pI)
-
-		# Boundary density
-		rhoB = physics.thermo.rho
-		UqB[:, :, srho] = rhoB * YI
-
-		# Boundary velocity
-		UqB[:, :, srhou] = 0.
-
-		# Boundary energy
-		rhoEB = rhoB*physics.thermo.e
-		UqB[:, :, srhoE] = rhoEB
-
-		return UqB
-
-class AdiabaticWall(BCWeakPrescribed):
-	'''
-	This class corresponds to a viscous wall with zero flux
-	(adiabatic). See documentation for more details.
-	'''
-
-	def get_boundary_state(self, physics, UqI, normals, x, t):
-		UqB = UqI.copy()
-		_, srhou, srhoE = physics.get_state_slices()
-
-        # Boundary densities = interior densities
-		rhoiI = physics.compute_variable("Densities", UqI)
-		if np.any(rhoiI < 0.):
-			raise errors.NotPhysicalError("Negative densities at adiabatic wall.")
-
-		# Boundary temperature = interior temperature (q=0)
-		TI = physics.compute_variable("Temperature", UqI)
-		if np.any(TI < 0.):
-			raise errors.NotPhysicalError("Negative temperature at adiabatic wall.")
-
-		# Set the thermodynamic state from the interior densities and temperature
-		physics.thermo.set_state_from_rhoi_T(rhoiI, TI)
-
-		# Boundary velocity
-		UqB[:, :, srhou] = 0.
-
-		# Boundary energy
-		UqB[:, :, srhoE] = physics.thermo.rho * physics.thermo.e
-
-		return UqB
 
 
 '''

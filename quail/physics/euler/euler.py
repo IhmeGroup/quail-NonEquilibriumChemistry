@@ -79,7 +79,11 @@ class Euler(base.PhysicsBase):
             base_BC_type.StateAll : base_fcns.StateAll,
             base_BC_type.Extrapolate : base_fcns.Extrapolate,
             euler_BC_type.SlipWall : euler_fcns.SlipWall,
+            euler_BC_type.SlipWallRiemann : euler_fcns.SlipWallRiemann,
             euler_BC_type.PressureOutlet : euler_fcns.PressureOutlet,
+            euler_BC_type.AdiabaticWall : euler_fcns.AdiabaticWall,
+            euler_BC_type.IsothermalWall : euler_fcns.IsothermalWall,
+            euler_BC_type.IsothermalWallRiemann : euler_fcns.IsothermalWallRiemann,
         })
 
         if self.NDIMS == 1:
