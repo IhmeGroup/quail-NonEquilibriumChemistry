@@ -342,6 +342,8 @@ def driver(deck):
     if mesh_params["File"] is not None:
         # Gmsh file
         mesh = mesh_gmsh.import_gmsh_mesh(mesh_params["File"])
+    elif mesh_params["Mesh"] is not None:
+        mesh = mesh_params["Mesh"]
     else:
         # Create our own mesh
 

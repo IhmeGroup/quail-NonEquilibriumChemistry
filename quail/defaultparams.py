@@ -149,6 +149,8 @@ Mesh = {
 		# Name of Gmsh mesh file to read
 		# If None, then will create a uniform mesh on either a line segment
 		# domain (1D) or a rectangular domain (2D) based on below parameters
+    "Mesh" : None,
+		# Pregenerated mesh object
 	"ElementShape" : "Segment",
 		# Shape of elements (if no Gmsh file provided)
 	"NumElemsX" : 10,

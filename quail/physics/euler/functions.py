@@ -52,7 +52,11 @@ class BCType(Enum):
     boundary conditions are specific to the available Euler equation sets.
     '''
     SlipWall = auto()
+    SlipWallRiemann = auto()
     PressureOutlet = auto()
+    AdiabaticWall = auto()
+    IsothermalWall = auto()
+    IsothermalWallRiemann = auto()
 
 
 class SourceType(Enum):
@@ -71,6 +75,7 @@ class ConvNumFluxType(Enum):
     numerical fluxes are specific to the available Euler equation sets.
     '''
     Roe = auto()
+    HLLC = auto()
 
 
 '''
@@ -709,6 +714,26 @@ class SlipWall(BCWeakPrescribed):
         return UqB
 
 
+class SlipWallRiemann(BCWeakRiemann):
+    '''
+    This class corresponds to a slip wall. See documentation for more
+    details.
+    '''
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+        srhou = physics.get_state_slice("Momentum")
+
+        # Unit normals
+        n_hat = normals/np.linalg.norm(normals, axis=2, keepdims=True)
+
+        # Remove momentum contribution in normal direction from boundary
+        # state
+        rhoveln = np.sum(UqI[:, :, srhou] * n_hat, axis=2, keepdims=True)
+        UqB = UqI.copy()
+        UqB[:, :, srhou] -= 2.0*rhoveln*n_hat
+
+        return UqB
+
+
 class PressureOutlet(BCWeakPrescribed):
     '''
     This class corresponds to an outflow boundary condition with static
@@ -789,6 +814,183 @@ class PressureOutlet(BCWeakPrescribed):
         # Boundary energy
         rhovel2B = rhoB*np.sum(velB**2., axis=2, keepdims=True)
         UqB[:, :, srhoE] = pB/(gamma - 1.) + 0.5*rhovel2B
+
+        return UqB
+
+
+class AdiabaticWall(BCWeakPrescribed):
+    '''
+    This class corresponds to a viscous wall with zero heat flux
+    (adiabatic). See documentation for more details.
+    '''
+
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        _, srhou, srhoE = physics.get_state_slices()
+
+        # Boundary densities = interior densities
+        rhoiI = physics.compute_variable("Densities", UqI)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError("Negative densities at adiabatic wall.")
+
+        # Boundary temperature = interior temperature (q=0)
+        TI = physics.compute_variable("Temperature", UqI)
+        if np.any(TI < 0.):
+            raise errors.NotPhysicalError("Negative temperature at adiabatic wall.")
+
+        # Set the thermodynamic state from the interior densities and temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, TI)
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        # Boundary energy
+        UqB[:, :, srhoE] = physics.thermo.rho * physics.thermo.e
+
+        return UqB
+
+
+class IsothermalWall(BCWeakPrescribed):
+    '''
+    This class corresponds to a viscous Isothermal wall. See documentation for more
+    details.
+    '''
+    def __init__(self, Twall, method=0):
+        '''
+        This method initializes the attributes.
+
+        Inputs:
+        -------
+            Twall: wall temperature
+
+        Outputs:
+        --------
+            self: attributes initialized
+        '''
+        self.Twall = Twall
+        self.method = method
+
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+
+        if self.method == 1:
+            return self.set_rhoE(physics, UqI, normals, x, t)
+        elif self.method == 2:
+            return self.set_rho(physics, UqI, normals, x, t)
+
+        return self.set_Y_T_p(physics, UqI, normals, x, t)
+
+    def set_Y_T_p(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior pressure and mass fractions
+        pI = physics.compute_variable("Pressure", UqI)
+        YI = physics.thermo.Y
+        if np.any(pI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        # wall pressure pB = pI
+        physics.thermo.set_state_from_Y_T_p(YI, self.Twall, pI)
+
+        # Boundary density
+        rhoB = physics.thermo.rho
+        UqB[:, :, srho] = rhoB * YI
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        # Boundary energy
+        rhoEB = rhoB*physics.thermo.e
+        UqB[:, :, srhoE] = rhoEB
+
+        return UqB
+
+    def set_rhoE(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior partial densities
+        rhoiI = UqI[:, :, srho]
+        YI = rhoiI / rhoiI.sum(axis=2, keepdims=True)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, self.Twall)
+
+        # Boundary density from boundary internal energy (rhoE = rhoe)
+        rhoEB = UqB[:, :, srhoE]
+        eB = physics.thermo.e
+        UqB[:, :, srho] = (rhoEB / eB) * YI
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        return UqB
+
+    def set_rho(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior partial densities
+        rhoiI = UqI[:, :, srho]
+        rhoB = rhoiI.sum(axis=2, keepdims=True)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, self.Twall)
+
+        # Boundary energy from boundary internal energy (rhoE = rhoe)
+        eB = physics.thermo.e
+        UqB[:, :, srhoE] = rhoB*eB
+
+        # Boundary velocity
+        UqB[:, :, srhou] = 0.
+
+        return UqB
+
+
+class IsothermalWallRiemann(BCWeakRiemann):
+    '''
+    This class corresponds to a viscous Isothermal wall. See documentation for more
+    details.
+    '''
+    def __init__(self, Twall):
+        '''
+        This method initializes the attributes.
+
+        Inputs:
+        -------
+            Twall: wall temperature
+
+        Outputs:
+        --------
+            self: attributes initialized
+        '''
+        self.Twall = Twall
+
+    def get_boundary_state(self, physics, UqI, normals, x, t):
+        UqB = UqI.copy()
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        # Interior partial densities
+        rhoiI = UqI[:, :, srho]
+        rhoB = rhoiI.sum(axis=2, keepdims=True)
+        if np.any(rhoiI < 0.):
+            raise errors.NotPhysicalError
+
+        # Set the boundary thermodynamic state with the specified wall temperature
+        physics.thermo.set_state_from_rhoi_T(rhoiI, self.Twall)
+
+        # Flip the boundary velocity
+        rhouB = UqI[:, :, srhou]
+        UqB[:, :, srhou] = -rhouB
+
+        # Boundary energy
+        rhoEB = rhoB*physics.thermo.e + 0.5*(rhouB*rhouB).sum(axis=2, keepdims=True)/rhoB
+        UqB[:, :, srhoE] = rhoEB
 
         return UqB
 
@@ -1409,3 +1611,146 @@ class Roe2D(Roe1D):
         R[:, :, i, -1] = velRoe[:, :, -1]; R[:, :, i, i] = 1.
 
         return R
+
+
+class HLLC(ConvNumFluxBase):
+    '''
+    This class implements the modified Harten-Lax-van Leer (HLL) scheme.
+    '''
+    def get_wave_speeds(self, rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR):
+        estimators = [
+            self.get_wave_speeds_roe,
+            self.get_wave_speeds_pvrs,
+            ]
+
+        # SL, SR = 1e30, -1e30
+        SL, SR = uL-aL, uR+aR
+        for estimator in estimators:
+            SLtemp, SRtemp = estimator(rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR)
+            SL = np.minimum(SL, SLtemp)
+            SR = np.maximum(SR, SRtemp)
+
+        return SL, SR
+
+    def get_wave_speeds_roe(self, rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR):
+        a2L = aL*aL
+        a2R = aR*aR
+        rhoL_sqrt = np.sqrt(rhoL)
+        rhoR_sqrt = np.sqrt(rhoR)
+        denom = 1.0 / (rhoL_sqrt + rhoR_sqrt)
+
+        uRoe = (rhoL_sqrt*uL + rhoR_sqrt*uR)*denom
+        aRoe = np.sqrt(
+            (rhoL_sqrt*a2L + rhoR_sqrt*a2R)*denom +
+            0.5*(rhoL_sqrt*rhoR_sqrt*(uR-uL)**2)*denom**2
+            )
+
+        SL = uRoe - aRoe
+        SR = uRoe + aRoe
+
+        return SL, SR
+
+    def get_wave_speeds_pvrs(self, rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR):
+        # Primitive-Variable Riemann Solver (PVRS):
+        rho_avg = 0.5*(rhoL + rhoR)
+        a_avg = 0.5*(aL + aR)
+        p_pvrs = 0.5*(pL + pR - (uR-uL)*rho_avg*a_avg)
+
+        # Left wave speed
+        qL = np.ones(pL.shape)
+        idx = np.where(p_pvrs > pL)[:2]
+        g = gL[*idx, :] if isinstance(gL, np.ndarray) else gL
+        qL[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pL[*idx, :] - 1.0))
+        SL = uL - aL*qL
+
+        # Right wave speed
+        qR = np.ones(pL.shape)
+        idx = np.where(p_pvrs > pR)[:2]
+        g = gR[*idx, :] if isinstance(gR, np.ndarray) else gR
+        qR[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pR[*idx, :] - 1.0))
+        SR = uR + aR*qR
+
+        return SL, SR
+
+    def compute_flux(self, physics, UqL, UqR, normals):
+        # Normalize the normal vectors
+        n_mag = np.linalg.norm(normals, axis=2, keepdims=True)
+        n_hat = normals/n_mag
+
+        # Left flux
+        FqL, (uLvec, thermoL) = physics.get_conv_flux_projected(UqL, n_hat)
+        uL = (uLvec*n_hat).sum(axis=2, keepdims=True)
+        u2L = (uLvec*uLvec).sum(axis=2, keepdims=True)
+        rhoL = thermoL.rho
+        pL = thermoL.p
+        aL = thermoL.c
+        gL = thermoL.gamma
+        YL = thermoL.Y
+        eL = thermoL.e
+
+        # Right flux
+        FqR, (uRvec, thermoR) = physics.get_conv_flux_projected(UqR, n_hat)
+        uR = (uRvec*n_hat).sum(axis=2, keepdims=True)
+        u2R = (uRvec*uRvec).sum(axis=2, keepdims=True)
+        rhoR = thermoR.rho
+        pR = thermoR.p
+        aR = thermoR.c
+        gR = thermoR.gamma
+        YR = thermoR.Y
+        eR = thermoR.e
+
+        # Estimate the wave speeds
+        SL, SR = self.get_wave_speeds(rhoL, rhoR, aL, aR, pL, pR, uL, uR, gL, gR)
+
+        # Initialize flux to left flux
+        F = FqL
+
+        # Set points where SR <= 0 to right flux
+        idx = np.where(SR <= 0.0)[:2]
+        F[*idx, :] = FqR[*idx, :]
+
+        # Downselect to points where SL < 0 < SR
+        idx = np.where(np.logical_and(SL < 0, SR > 0))[:2]
+
+        # Initialize with left values
+        Sk = SL[*idx, :]
+        pk = pL[*idx, :]
+        rhok = rhoL[*idx, :]
+        uk = uL[*idx, :]
+        u2k = u2L[*idx, :]
+        Yk = YL[*idx, :]
+        ek = eL[*idx, :]
+        vk = uLvec[*idx, :]
+        Uk = UqL[*idx, :]
+
+        # Shear wave speed
+        alphaL = alphak = rhok*(Sk-uk)
+        alphaR = rhoR[*idx, :]*(SR[*idx, :]-uR[*idx, :])
+        Sstar = (pR[*idx, :] - pk + uk*alphaL - uR[*idx, :]*alphaR) / (alphaL - alphaR)
+
+        # Overwrite values with right side where S* <= 0
+        idxR = np.where(Sstar < 0.0)[0]
+        idxR_main = tuple([subidx[idxR] for subidx in idx])
+        Sk[idxR, :] = SR[*idxR_main, :]
+        pk[idxR, :] = pR[*idxR_main, :]
+        rhok[idxR, :] = rhoR[*idxR_main, :]
+        uk[idxR, :] = uR[*idxR_main, :]
+        u2k[idxR, :] = u2R[*idxR_main, :]
+        Yk[idxR, :] = YR[*idxR_main, :]
+        ek[idxR, :] = eR[*idxR_main, :]
+        vk[idxR, :] = uRvec[*idxR_main, :]
+        Uk[idxR, :] = UqR[*idxR_main, :]
+
+        F[*idxR_main, :] = FqR[*idxR_main, :]
+        alphak[idxR, :] = alphaR[idxR, :]
+
+        # Combine to get overall flux
+        rhokstar = alphak / (Sk - Sstar)
+        C = (Sstar-uk)*(Sstar + pk/alphak)
+        vk += n_hat[*idx, :]*(Sstar - (vk*n_hat[*idx, :]).sum(axis=1, keepdims=True))
+        Ustar = rhokstar*np.concatenate([Yk, vk, ek+0.5*u2k+C], axis=-1)
+        dF = Sk*(Ustar - Uk)
+
+        F[*idx, :] += dF
+
+        return n_mag*F

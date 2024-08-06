@@ -167,10 +167,12 @@ def get_boundary_info(solver, mesh, physics, bname, var_name,
 		d = 1
 	else:
 		plot = False
+
+	bpoints = x_bgroups[boundary_num]
 	if plot:
 		bvalues = np.zeros([boundary_group.num_boundary_faces, nq])
 			# [num_boundary_faces, nq]
-		bpoints = x_bgroups[boundary_num][:,:,d].flatten()
+		bpoints = bpoints[:,:,d].flatten()
 			# [num_boundary_faces, nq, ndims]
 
 	integ_val = 0.
@@ -202,18 +204,15 @@ def get_boundary_info(solver, mesh, physics, bname, var_name,
 	# Integrate and sum over faces
 	if integrate:
 		integ_val = np.sum(np.sum(varq*jac*quad_wts, axis=1), axis=0)
-
-	if plot:
-		bvalues = varq[:,:,0]
-
-	if integrate:
 		print("Boundary integral = %g" % (integ_val))
 
 	# Plot if requested
 	if plot:
 		plt.figure()
-		bvalues = bvalues.flatten()
+		bvalues = varq[:,:,0].flatten()
 		ylabel = plot_defs.get_ylabel(physics, var_name, ylabel)
 		plot_defs.plot_1D(physics, bpoints, bvalues, ylabel, fmt,
 				legend_label)
 		plot_defs.finalize_plot(xlabel=xlabel, **kwargs)
+	else:
+		return bpoints, varq
