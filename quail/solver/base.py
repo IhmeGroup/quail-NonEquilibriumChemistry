@@ -639,7 +639,7 @@ class SolverBase(ABC):
 		# Parameters for writing data
 		write_interval = self.params["WriteInterval"]
 		if write_interval == -1:
-			write_interval = np.NAN
+			write_interval = np.nan
 		write_final_solution = self.params["WriteFinalSolution"]
 		write_initial_solution = self.params["WriteInitialSolution"]
 
