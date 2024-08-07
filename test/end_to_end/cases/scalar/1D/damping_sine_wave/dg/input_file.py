@@ -4,7 +4,7 @@ TimeStepping = {
 	"InitialTime" : 0.,
 	"FinalTime" : 0.5,
 	"NumTimeSteps" : 40,
-	"TimeStepper" : "SSPRK3",
+	"TimeStepper" : "LSSSPRK3",
 }
 
 Numerics = {
