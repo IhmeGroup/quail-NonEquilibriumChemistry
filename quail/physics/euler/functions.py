@@ -1659,15 +1659,19 @@ class HLLC(ConvNumFluxBase):
         # Left wave speed
         qL = np.ones(pL.shape)
         idx = np.where(p_pvrs > pL)[:2]
-        g = gL[*idx, :] if isinstance(gL, np.ndarray) else gL
-        qL[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pL[*idx, :] - 1.0))
+        g = gL[(*idx, slice(None))] if isinstance(gL,np.ndarray) else gL
+        qL[(*idx,slice(None))] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[(*idx,slice(None))] / pL[(*idx,slice(None))]-1.0))
+        #g = gL[*idx, :] if isinstance(gL, np.ndarray) else gL
+        #qL[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pL[*idx, :] - 1.0))
         SL = uL - aL*qL
 
         # Right wave speed
         qR = np.ones(pL.shape)
         idx = np.where(p_pvrs > pR)[:2]
-        g = gR[*idx, :] if isinstance(gR, np.ndarray) else gR
-        qR[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pR[*idx, :] - 1.0))
+        g = gR[(*idx, slice(None))] if isinstance(gR,np.ndarray) else gR
+        qR[(*idx,slice(None))] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[(*idx,slice(None))] / pR[(*idx,slice(None))]-1.0))
+        #g = gR[*idx, :] if isinstance(gR, np.ndarray) else gR
+        #qR[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pR[*idx, :] - 1.0))
         SR = uR + aR*qR
 
         return SL, SR
@@ -1707,50 +1711,65 @@ class HLLC(ConvNumFluxBase):
 
         # Set points where SR <= 0 to right flux
         idx = np.where(SR <= 0.0)[:2]
-        F[*idx, :] = FqR[*idx, :]
+        F[(*idx,slice(None))] = FqR[(*idx,slice(None))]
+        #F[*idx, :] = FqR[*idx, :]
 
         # Downselect to points where SL < 0 < SR
         idx = np.where(np.logical_and(SL < 0, SR > 0))[:2]
 
         # Initialize with left values
-        Sk = SL[*idx, :]
-        pk = pL[*idx, :]
-        rhok = rhoL[*idx, :]
-        uk = uL[*idx, :]
-        u2k = u2L[*idx, :]
-        Yk = YL[*idx, :]
-        ek = eL[*idx, :]
-        vk = uLvec[*idx, :]
-        Uk = UqL[*idx, :]
+        Sk = SL[(*idx,slice(None))]
+        pk = pL[(*idx,slice(None))]
+        rhok = rhoL[(*idx,slice(None))]
+        uk = uL[(*idx,slice(None))]
+        u2k = u2L[(*idx,slice(None))]
+        Yk = YL[(*idx,slice(None))]
+        ek = eL[(*idx,slice(None))]
+        vk = uLvec[(*idx,slice(None))]
+        Uk = UqL[(*idx,slice(None))]
+        #Sk = SL[*idx, :]
+        #pk = pL[*idx, :]
+        #rhok = rhoL[*idx, :]
+        #uk = uL[*idx, :]
+        #u2k = u2L[*idx, :]
+        #Yk = YL[*idx, :]
+        #ek = eL[*idx, :]
+        #vk = uLvec[*idx, :]
+        #Uk = UqL[*idx, :]
 
         # Shear wave speed
         alphaL = alphak = rhok*(Sk-uk)
-        alphaR = rhoR[*idx, :]*(SR[*idx, :]-uR[*idx, :])
-        Sstar = (pR[*idx, :] - pk + uk*alphaL - uR[*idx, :]*alphaR) / (alphaL - alphaR)
+        alphaR = rhoR[(*idx,slice(None))]*(SR[(*idx,slice(None))]-uR[(*idx,slice(None))])
+        Sstar = (pR[(*idx,slice(None))] - pk + uk*alphaL - uR[(*idx,slice(None))]*alphaR) / (alphaL - alphaR)
+        #alphaR = rhoR[*idx, :]*(SR[*idx, :]-uR[*idx, :])
+        #Sstar = (pR[*idx, :] - pk + uk*alphaL - uR[*idx, :]*alphaR) / (alphaL - alphaR)
 
         # Overwrite values with right side where S* <= 0
         idxR = np.where(Sstar < 0.0)[0]
         idxR_main = tuple([subidx[idxR] for subidx in idx])
-        Sk[idxR, :] = SR[*idxR_main, :]
-        pk[idxR, :] = pR[*idxR_main, :]
-        rhok[idxR, :] = rhoR[*idxR_main, :]
-        uk[idxR, :] = uR[*idxR_main, :]
-        u2k[idxR, :] = u2R[*idxR_main, :]
-        Yk[idxR, :] = YR[*idxR_main, :]
-        ek[idxR, :] = eR[*idxR_main, :]
-        vk[idxR, :] = uRvec[*idxR_main, :]
-        Uk[idxR, :] = UqR[*idxR_main, :]
+        Sk[idxR, :] = SR[idxR_main,:]       #SR[*idxR_main, :]
+        pk[idxR, :] = pR[idxR_main,:]       #pR[*idxR_main, :]
+        rhok[idxR, :] = rhoR[idxR_main,:]   #rhoR[*idxR_main, :]
+        uk[idxR, :] = uR[idxR_main,:]       #uR[*idxR_main, :]
+        u2k[idxR, :] = u2R[idxR_main,:]     #u2R[*idxR_main, :]
+        Yk[idxR, :] = YR[idxR_main,:]       #YR[*idxR_main, :]
+        ek[idxR, :] = eR[idxR_main,:]       #eR[*idxR_main, :]
+        vk[idxR, :] = uRvec[idxR_main,:]    #uRvec[*idxR_main, :]
+        Uk[idxR, :] = UqR[idxR_main,:]      #UqR[*idxR_main, :]
 
-        F[*idxR_main, :] = FqR[*idxR_main, :]
+        #F[*idxR_main, :] = FqR[*idxR_main, :]
+        F[idxR_main, :] = FqR[idxR_main, :]
         alphak[idxR, :] = alphaR[idxR, :]
 
         # Combine to get overall flux
         rhokstar = alphak / (Sk - Sstar)
         C = (Sstar-uk)*(Sstar + pk/alphak)
-        vk += n_hat[*idx, :]*(Sstar - (vk*n_hat[*idx, :]).sum(axis=1, keepdims=True))
+        vk += n_hat[(*idx,slice(None))]*(Sstar - (vk*n_hat[(*idx,slice(None))]).sum(axis=1, keepdims=True))
+        #vk += n_hat[*idx, :]*(Sstar - (vk*n_hat[*idx, :]).sum(axis=1, keepdims=True))
         Ustar = rhokstar*np.concatenate([Yk, vk, ek+0.5*u2k+C], axis=-1)
         dF = Sk*(Ustar - Uk)
 
-        F[*idx, :] += dF
+        #F[*idx, :] += dF
+        F[(*idx,slice(None))] += dF
 
         return n_mag*F

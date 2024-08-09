@@ -1,4 +1,4 @@
-import numerics.helpers.helpers as helpers
+import quail.numerics.helpers.helpers as helpers
 
 def custom_user_function(solver):
 	'''

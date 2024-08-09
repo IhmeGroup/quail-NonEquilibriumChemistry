@@ -534,7 +534,8 @@ class Euler(base.PhysicsBase):
 
         # Add pressure to the diagonal
         idx_diag = 2*(tuple(range(self.NDIMS)),)
-        momentum_flux[..., *idx_diag] += p
+        momentum_flux[(..., *idx_diag)] += p
+        #momentum_flux[..., *idx_diag] += p
 
         # Get mass fraction(s)
         Y = self.thermo.Y[..., None]

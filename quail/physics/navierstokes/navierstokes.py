@@ -128,9 +128,11 @@ class NavierStokes(euler.Euler):
 
         # Subtract rho*duk/dxk = drhouk/dxk - uk*drho/dxk
         idx_diag = 2*(tuple(range(self.NDIMS)),)
-        rhodiv = (grhou[:, :, *idx_diag] - u*grho[:, :, 0, :]
+        #rhodiv = (grhou[:, :, *idx_diag] - u*grho[:, :, 0, :]
+        rhodiv = (grhou[(slice(None), slice(None), *idx_diag)] - u*grho[:, :, 0, :]
                   ).sum(axis=2, keepdims=True)
-        tauij[:, :, *idx_diag] -= 2.0/3.0 * rhodiv
+        tauij[(slice(None), slice(None), *idx_diag)] -= 2.0/3.0 * rhodiv
+        #tauij[:, :, *idx_diag] -= 2.0/3.0 * rhodiv
 
         # Multiply by mu / rho
         tauij *= nu[...,None]

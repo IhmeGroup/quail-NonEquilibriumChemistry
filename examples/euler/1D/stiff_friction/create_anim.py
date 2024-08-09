@@ -1,9 +1,9 @@
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 
-import processing.post as post
-import processing.plot as plot
-import processing.readwritedatafiles as readwritedatafiles
+import quail.processing.post as post
+import quail.processing.plot as plot
+import quail.processing.readwritedatafiles as readwritedatafiles
 
 
 plot.prepare_plot(linewidth=0.5)

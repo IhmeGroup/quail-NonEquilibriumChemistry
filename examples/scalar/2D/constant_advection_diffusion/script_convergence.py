@@ -1,6 +1,6 @@
-import numerics.helpers.helpers as helpers
-import processing.readwritedatafiles as readwritedatafiles
-import processing.post as post
+import quail.numerics.helpers.helpers as helpers
+import quail.processing.readwritedatafiles as readwritedatafiles
+import quail.processing.post as post
 
 import importlib
 import json

@@ -1,7 +1,7 @@
 import numpy as np
-import processing.post as post
-import processing.plot as plot
-import processing.readwritedatafiles as readwritedatafiles
+import quail.processing.post as post
+import quail.processing.plot as plot
+import quail.processing.readwritedatafiles as readwritedatafiles
 
 # Read data file
 fname = "Data_final.pkl"

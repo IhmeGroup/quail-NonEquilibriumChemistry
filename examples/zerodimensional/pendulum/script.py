@@ -1,5 +1,5 @@
-import numerics.helpers.helpers as helpers
-import processing.readwritedatafiles as readwritedatafiles
+import quail.numerics.helpers.helpers as helpers
+import quail.processing.readwritedatafiles as readwritedatafiles
 
 import importlib
 import numpy as np

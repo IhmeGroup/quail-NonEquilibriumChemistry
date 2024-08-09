@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # ------------------------------------------------------------------------ #
 #
 #       quail: A lightweight discontinuous Galerkin code for
