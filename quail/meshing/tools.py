@@ -20,8 +20,8 @@
 #       Contains helper functions related to meshes.
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-
+from quail.general import nan
+from quail.backend import np
 import quail.meshing.meshbase as mesh_defs
 import quail.numerics.basis.tools as basis_tools
 
@@ -199,7 +199,7 @@ def verify_periodic_compatibility(mesh, boundary_group, icoord):
 		mesh: mesh object (coordinates potentially modified)
 		coord: position of boundary in the icoord direction
 	'''
-	coord = np.nan
+	coord = nan
 	gbasis = mesh.gbasis
 	for boundary_face in boundary_group.boundary_faces:
 		# Extract info

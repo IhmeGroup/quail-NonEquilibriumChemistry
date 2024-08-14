@@ -22,30 +22,21 @@
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
 import importlib
-import numpy as np
+from quail.backend import np
 import time
 
 from quail import errors
 
-from quail.general import (ModalOrNodal, NodeType, ShapeType,
-		QuadratureType, StepperType, LimiterType, BasisType)
+from quail.general import (ModalOrNodal, NodeType, ShapeType, QuadratureType,
+                           StepperType, LimiterType, BasisType, inf, nan)
 
-import quail.meshing.meshbase as mesh_defs
 import quail.meshing.tools as mesh_tools
 
 import quail.numerics.basis.tools as basis_tools
-
 from quail.numerics.helpers import helpers
-
 import quail.numerics.limiting.tools as limiter_tools
 
-import quail.numerics.timestepping.tools as stepper_tools
-import quail.numerics.timestepping.stepper as stepper_defs
-from quail.numerics.quadrature import segment
-
-import quail.processing.post as post_defs
 from quail.processing import readwritedatafiles
-
 import quail.solver.tools as solver_tools
 
 
@@ -509,13 +500,13 @@ class SolverBase(ABC):
 
 		# Add this residual back to the global. The np.add.at function is
 		# used to correctly handle duplicate element IDs.
-		np.add.at(res, elemL_IDs, -RL)
-		np.add.at(res, elemR_IDs,  RR)
+		res = np.add.at(res, elemL_IDs, -RL)
+		res = np.add.at(res, elemR_IDs,  RR)
 
 		# Add the additional diffusion portion of the residual to the
 		# correct left/right states.
-		np.add.at(res, elemL_IDs,  RL_diff)
-		np.add.at(res, elemR_IDs,  RR_diff)
+		res = np.add.at(res, elemL_IDs,  RL_diff)
+		res = np.add.at(res, elemR_IDs,  RR_diff)
 
 	def get_boundary_face_residuals(self, U, res):
 		'''
@@ -639,7 +630,7 @@ class SolverBase(ABC):
 		# Parameters for writing data
 		write_interval = self.params["WriteInterval"]
 		if write_interval == -1:
-			write_interval = np.nan
+			write_interval = nan
 		write_final_solution = self.params["WriteFinalSolution"]
 		write_initial_solution = self.params["WriteInitialSolution"]
 
@@ -657,8 +648,8 @@ class SolverBase(ABC):
 
 		while self.itime < stepper.num_time_steps:
 			# Reset min and max state
-			self.max_state[:] = -np.inf
-			self.min_state[:] = np.inf
+			self.max_state[:] = -inf
+			self.min_state[:] = inf
 
 			# Get time step size
 			stepper.dt = stepper.get_time_step(stepper, self)

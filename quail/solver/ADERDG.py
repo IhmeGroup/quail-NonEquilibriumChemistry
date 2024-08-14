@@ -20,14 +20,11 @@
 #       Contains class definitions for the ADER-DG solver
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-from scipy.linalg import solve_sylvester
-
+from quail.backend import np
 from quail import errors
 
 from quail.general import ModalOrNodal, StepperType, ShapeType
 
-import quail.meshing.meshbase as mesh_defs
 import quail.meshing.tools as mesh_tools
 
 import quail.numerics.basis.basis as basis_defs
@@ -35,7 +32,6 @@ import quail.numerics.basis.tools as basis_tools
 import quail.numerics.basis.ader_tools as basis_st_tools
 
 from quail.numerics.helpers import helpers
-import quail.numerics.limiting.tools as limiter_tools
 
 import quail.numerics.timestepping.tools as stepper_tools
 import quail.numerics.timestepping.stepper as stepper_defs

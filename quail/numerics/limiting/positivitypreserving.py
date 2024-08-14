@@ -20,8 +20,7 @@
 #       Contains class definitions for positivity-preserving limiters.
 #
 # ------------------------------------------------------------------------ #
-from abc import ABC, abstractmethod
-import numpy as np
+from quail.backend import np
 
 from quail import errors
 from quail import general

@@ -20,7 +20,7 @@
 #		Contains functions to evaluate quadrature for prism shapes
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
+from quail.backend import np
 from quail import general
 import quail.numerics.quadrature.segment as qseg
 import quail.numerics.quadrature.triangle as qtri

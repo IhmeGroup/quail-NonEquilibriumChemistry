@@ -20,17 +20,11 @@
 #       Contains helper functions for the stepper class.
 #
 # ------------------------------------------------------------------------ #
-from abc import ABC, abstractmethod
-import math
-import numpy as np
-
+from quail.backend import np
 from quail.general import StepperType
 
-import quail.numerics.basis.tools as basis_tools
 from quail.numerics.helpers import helpers
 import quail.numerics.timestepping.stepper as stepper_defs
-
-import quail.solver.tools as solver_tools
 
 
 def set_stepper(params, U):
@@ -134,7 +128,7 @@ def set_time_stepping_approach(stepper, params):
 		stepper.num_time_steps = num_time_steps
 	elif dt != None and tfinal != None:
 		stepper.get_time_step = get_dt_from_timestepsize
-		stepper.num_time_steps = math.ceil(tfinal/dt)
+		stepper.num_time_steps = int(np.ceil(tfinal/dt))
 	elif cfl != None or all([val is not None for val in ramp_inputs]):
 		stepper.get_time_step = get_dt_from_cfl
 		stepper.num_time_steps = 1

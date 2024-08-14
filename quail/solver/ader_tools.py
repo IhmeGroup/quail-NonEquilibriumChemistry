@@ -20,14 +20,11 @@
 #       Contains additional functions (tools) for the ADER-DG solver class
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-from scipy.integrate import LSODA, ode
-from scipy.linalg import solve_sylvester
-from scipy.optimize import fsolve, root
+from quail.backend import np
+from scipy.integrate import ode
+from scipy.optimize import root
 
 from quail import general
-
-import quail.meshing.tools as mesh_tools
 
 import quail.numerics.basis.basis as basis_defs
 from quail.numerics.helpers import helpers

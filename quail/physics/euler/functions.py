@@ -22,14 +22,16 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
-from scipy.optimize import fsolve, root
+
+from quail.backend import np
+from scipy.optimize import fsolve
 
 from quail import errors, general
 
 from quail.physics.base.data import (FcnBase, BCWeakRiemann,
         BCWeakPrescribed, SourceBase, ConvNumFluxBase)
 
+pi = general.pi
 
 class FcnType(Enum):
     '''
@@ -126,7 +128,7 @@ class SmoothIsentropicFlow(FcnBase):
         irho, irhou, irhoE = physics.get_state_indices()
 
         # Lambda functions
-        rho0 = lambda x, a: 1. + a*np.sin(np.pi*x)
+        rho0 = lambda x, a: 1. + a*np.sin(pi*x)
         pressure = lambda rho, gamma: rho**gamma
         rho = lambda x1, x2, a: 0.5*(rho0(x1, a) + rho0(x2, a))
         vel = lambda x1, x2, a: np.sqrt(3)*(rho(x1, x2, a) - rho0(x1, a))
@@ -313,11 +315,11 @@ class IsentropicVortex(FcnBase):
         r = np.sqrt(xr**2. + yr**2.)
 
         # Perturbations
-        dU = vs/(2.*np.pi)*np.exp(0.5*(1-r**2.))
+        dU = vs/(2.*pi)*np.exp(0.5*(1-r**2.))
         du = dU*-yr
         dv = dU*xr
 
-        dT = -(gamma - 1.)*vs**2./(8.*gamma*np.pi**2.)*np.exp(1. - r**2.)
+        dT = -(gamma - 1.)*vs**2./(8.*gamma*pi**2.)*np.exp(1. - r**2.)
 
         u = ub + du
         v = vb + dv
@@ -367,7 +369,7 @@ class DensityWave(FcnBase):
 
         Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
-        rho = 1.0 + 0.1*np.sin(2.*np.pi*x)
+        rho = 1.0 + 0.1*np.sin(2.*pi*x)
         rhou = rho*1.0
         rhoE = p/(gamma - 1.) + 0.5*rhou**2/rho
 
@@ -554,9 +556,9 @@ class TaylorGreenVortex(FcnBase):
 
         # State
         rho = 1.
-        u = np.sin(np.pi*x[:, :, 0])*np.cos(np.pi*x[:, :, 1])
-        v = -np.cos(np.pi*x[:, :, 0])*np.sin(np.pi*x[:, :, 1])
-        p = 0.25*(np.cos(2.*np.pi*x[:, :, 0]) + np.cos(2*np.pi*x[:, :, 1]))\
+        u = np.sin(pi*x[:, :, 0])*np.cos(pi*x[:, :, 1])
+        v = -np.cos(pi*x[:, :, 0])*np.sin(pi*x[:, :, 1])
+        p = 0.25*(np.cos(2.*pi*x[:, :, 0]) + np.cos(2*pi*x[:, :, 1]))\
                 + 1.
         E = p/(rho*(gamma - 1.)) + 0.5*(u**2. + v**2.)
 
@@ -1074,9 +1076,9 @@ class TaylorGreenSource(SourceBase):
 
         S = np.zeros_like(Uq)
 
-        S[:, :, irhoE] = np.pi/(4.*(gamma - 1.))*(np.cos(3.*np.pi*x[:, :, 0])*
-                np.cos(np.pi*x[:, :, 1]) - np.cos(np.pi*x[:, :, 0])*np.cos(3.*
-                np.pi*x[:, :, 1]))
+        S[:, :, irhoE] = pi/(4.*(gamma - 1.))*(np.cos(3.*pi*x[:, :, 0])*
+                np.cos(pi*x[:, :, 1]) - np.cos(pi*x[:, :, 0])*np.cos(3.*
+                pi*x[:, :, 1]))
 
         return S
 

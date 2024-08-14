@@ -8,10 +8,9 @@
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import matplotlib.tri as tri
-import numpy as np
+from quail.backend import np
 from scipy.spatial import Delaunay
 
-import quail.meshing.meshbase as mesh_defs
 import quail.meshing.tools as mesh_tools
 
 from quail.numerics.helpers import helpers

@@ -23,11 +23,9 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
-from scipy.optimize import fsolve, root
-
-from quail.physics.base.data import (FcnBase, BCWeakRiemann,
-        BCWeakPrescribed, SourceBase, ConvNumFluxBase)
+from quail.general import pi
+from quail.backend import np
+from quail.physics.base.data import FcnBase, SourceBase
 
 
 class FcnType(Enum):
@@ -59,7 +57,7 @@ class DensityWave(FcnBase):
 		qo = physics.qo
 		Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
-		rho = 1.0+0.1*np.sin(2.*np.pi*x)
+		rho = 1.0+0.1*np.sin(2.*pi*x)
 		rhou = rho*1.0
 		rhoz = rho*1.0
 		rhoE = (p/(gam-1.))+0.5*rhou**2/rho + qo*rhoz

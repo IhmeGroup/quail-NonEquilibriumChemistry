@@ -20,9 +20,11 @@
 #		Contains functions to evaluate quadrature for segment shapes
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
+from numpy import polynomial
+from quail.backend import np
 from quail import general
 
+pi = general.pi
 
 def get_quadrature_points_weights(order, quad_type, num_pts_colocated=0):
 	'''
@@ -72,7 +74,7 @@ def get_quadrature_gauss_legendre(order):
 	npts = (order + 1)//2
 
 	# use built-in numpy Gauss Legendre functions
-	qpts, qwts = np.polynomial.legendre.leggauss(npts)
+	qpts, qwts = polynomial.legendre.leggauss(npts)
 
 	qpts.shape = -1,1
 	qwts.shape = -1,1
@@ -182,19 +184,19 @@ def get_lobatto_pts_wts(n, tol):
 		qpts: quadrature point coordinates [nq, ndims]
 		qwts: quadrature weights [nq, ndims]
 	'''
-	leg_poly = np.polynomial.legendre.Legendre
+	leg_poly = polynomial.legendre.Legendre
 
 	ind = np.arange(n+1)
 	L = np.zeros([n+1, n+1])
 
 	# Initialize to Gauss-Lobatto Chebyshev points
-	qpts = -np.cos(np.pi*ind/n)
+	qpts = -np.cos(pi*ind/n)
 
 	niter = 1000
 	# Iterative evaluation to get roots of Legendre polynomial derivatives
 	for i in range(niter):
 		qpts_old = qpts
-		vander = np.polynomial.legendre.legvander(qpts, n)
+		vander = polynomial.legendre.legvander(qpts, n)
 
 		qpts = qpts_old - (qpts*vander[:, n] - vander[:, n-1])/(
 			(n+1)*vander[:, n])

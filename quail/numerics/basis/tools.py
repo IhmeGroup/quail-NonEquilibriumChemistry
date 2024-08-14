@@ -20,9 +20,9 @@
 #		Contains helper definitions for the shape and basis classes.
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-
-from quail.general import BasisType, ShapeType, NodeType
+from numpy import polynomial
+from quail.backend import np
+from quail.general import BasisType, NodeType
 
 import quail.meshing.gmsh as mesh_gmsh
 
@@ -747,7 +747,7 @@ def get_legendre_basis_1D(xq, p, basis_val=None, basis_ref_grad=None):
 		basis_ref_grad: evaluated physical gradient of basis [nq, nb, ndims]
 	'''
 	# Use numpy legendre polynomials
-	leg_poly = np.polynomial.legendre.Legendre
+	leg_poly = polynomial.legendre.Legendre
 
 	if basis_val is not None:
 		basis_val[:, :] = 0.
@@ -907,7 +907,7 @@ def get_kernel_function(p, x):
 	'''
 	p += 2
 	# Initialize the legendre polynomial object
-	leg_poly = np.polynomial.legendre.Legendre
+	leg_poly = polynomial.legendre.Legendre
 	x.shape = -1
 
 	# Construct the kernel's denominator
@@ -1030,7 +1030,7 @@ def get_kernel_grad(p, dxdxi, x):
 	Helper function for Hierarchical triangular basis
 	'''
 	p += 2
-	leg_poly = np.polynomial.legendre.Legendre
+	leg_poly = polynomial.legendre.Legendre
 	x.shape = -1
 
 	# First two lobatto shape functions

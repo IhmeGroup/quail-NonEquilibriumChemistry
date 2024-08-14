@@ -21,11 +21,9 @@
 #
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
-from enum import Enum, auto
-import numpy as np
+from enum import Enum
 
-from quail import errors
-
+from quail.backend import np
 import quail.physics.base.functions as base_fcns
 from quail.physics.base.functions import BCType as base_BC_type
 from quail.physics.base.functions import FcnType as base_fcn_type

@@ -20,8 +20,8 @@
 #       Contains helpers functions related to limiters.
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-
+from numpy import polynomial
+from quail.backend import np
 from quail import general
 import quail.numerics.limiting.positivitypreserving as pp_limiter
 import quail.numerics.limiting.wenolimiter as weno_limiter
@@ -263,7 +263,7 @@ def get_legendre_hessian_1D(xq, p, basis_ref_hessian=None):
 		basis_hessian: evaluated reference hessian [nq, nb, ndims]
 	'''
 	# Use numpy legendre polynomials
-	leg_poly = np.polynomial.legendre.Legendre
+	leg_poly = polynomial.legendre.Legendre
 
 	xq.shape = -1
 

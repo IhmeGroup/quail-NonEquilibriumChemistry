@@ -20,10 +20,7 @@
 #       Contains class definitions for mesh structures.
 #
 # ------------------------------------------------------------------------ #
-from enum import Enum, auto
-import numpy as np
-
-from quail.general import ShapeType
+from quail.backend import np
 import quail.numerics.basis.basis as basis_defs
 
 

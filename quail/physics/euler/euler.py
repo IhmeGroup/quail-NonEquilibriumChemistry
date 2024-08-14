@@ -22,7 +22,7 @@
 # ------------------------------------------------------------------------ #
 from enum import Enum
 from functools import cached_property
-import numpy as np
+from quail.backend import np
 
 from quail import errors, general
 
@@ -30,7 +30,6 @@ from quail.physics.base import base
 import quail.physics.base.functions as base_fcns
 from quail.physics.base.functions import BCType as base_BC_type
 from quail.physics.base.functions import ConvNumFluxType as base_conv_num_flux_type
-from quail.physics.base.functions import FcnType as base_fcn_type
 
 import quail.physics.euler.functions as euler_fcns
 from quail.physics.euler.functions import BCType as euler_BC_type

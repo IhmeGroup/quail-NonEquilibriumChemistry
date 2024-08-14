@@ -20,11 +20,8 @@
 #       Contains class definitions for WENO limiters.
 #
 # ------------------------------------------------------------------------ #
-from abc import ABC, abstractmethod
-import numpy as np
-import copy
-
-from quail import errors, general
+from quail.backend import np
+from quail import general
 
 import quail.meshing.tools as mesh_tools
 

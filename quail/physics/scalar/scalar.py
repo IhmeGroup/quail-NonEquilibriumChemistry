@@ -20,17 +20,14 @@
 #       Contains class definitions for scalar equations.
 #
 # ------------------------------------------------------------------------ #
-from enum import Enum, auto
-import numpy as np
-import sys
+from enum import Enum
 
-from quail import errors, general
+from quail.backend import np
+from quail import general
 
 from quail.physics.base import base
 import quail.physics.base.functions as base_fcns
-from quail.physics.base.functions import BCType as base_BC_type
 from quail.physics.base.functions import FcnType as base_fcn_type
-from quail.physics.base.functions import ConvNumFluxType as base_conv_num_flux_type
 from quail.physics.base.functions import DiffNumFluxType as base_diff_num_flux_type
 
 import quail.physics.base.functions as base_fcns

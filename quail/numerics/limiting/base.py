@@ -21,10 +21,8 @@
 #
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
-import numpy as np
 
 from quail import errors
-from quail import general
 
 
 class LimiterBase(ABC):

@@ -21,7 +21,7 @@
 #
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
-import numpy as np
+from quail.backend import np
 from quail.general import ThermoType
 from quail.external.optional_cantera import ct
 from quail.external.optional_mutationpp import mpp

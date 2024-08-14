@@ -20,10 +20,9 @@
 #       Contains functions for processing Gmsh files.
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-
 from quail import errors
 from quail import general
+from quail.backend import np
 
 import quail.meshing.meshbase as mesh_defs
 import quail.meshing.tools as mesh_tools

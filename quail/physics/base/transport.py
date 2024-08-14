@@ -20,11 +20,10 @@
 #       Contains functions for computing transport properties.
 #
 # ------------------------------------------------------------------------ #
-from abc import ABC, abstractmethod
-import numpy as np
+from abc import ABC
+from quail.backend import np
 from quail.general import ThermoType
 from quail.external.optional_cantera import ct
-from quail.external.optional_mutationpp import mpp
 from quail.physics.base.thermo import MutationppThermo
 
 

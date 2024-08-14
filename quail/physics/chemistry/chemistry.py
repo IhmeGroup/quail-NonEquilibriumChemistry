@@ -22,30 +22,20 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum
-import numpy as np
-from scipy.optimize import fsolve, root
+from quail.backend import np
 
 from quail import errors, general
 
 from quail.physics.base import base
-from quail.physics.euler import euler
 import quail.physics.base.functions as base_fcns
 from quail.physics.base.functions import BCType as base_BC_type
-from quail.physics.base.functions import ConvNumFluxType as base_conv_num_flux_type
-from quail.physics.base.functions import FcnType as base_fcn_type
 
 import quail.physics.euler.functions as euler_fcns
 from quail.physics.euler.functions import BCType as euler_BC_type
-from quail.physics.euler.functions import ConvNumFluxType as \
-        euler_conv_num_flux_type
-from quail.physics.euler.functions import FcnType as euler_fcn_type
-from quail.physics.euler.functions import SourceType as euler_source_type
 
 import quail.physics.chemistry.functions as chemistry_fcns
 from quail.physics.chemistry.functions import FcnType as chemistry_fcn_type
 from quail.physics.chemistry.functions import SourceType as chemistry_source_type
-from quail.physics.chemistry.functions import ConvNumFluxType as \
-        chemistry_conv_num_flux_type
 
 
 class Chemistry(base.PhysicsBase):

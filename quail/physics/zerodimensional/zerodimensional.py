@@ -20,21 +20,18 @@
 #       Contains class definitions for zero dimensional equations.
 #
 # ------------------------------------------------------------------------ #
-from enum import Enum, auto
-import numpy as np
+from enum import Enum
 
-from quail import errors, general
+from quail.backend import np
+from quail import general
 
 from quail.external.optional_cantera import ct
 
 from quail.physics.base import base
 import quail.physics.base.functions as base_fcns
-from quail.physics.base.functions import BCType as base_BC_type
 from quail.physics.base.functions import FcnType as base_fcn_type
-from quail.physics.base.functions import ConvNumFluxType as base_conv_num_flux_type
 
 import quail.physics.scalar.functions as scalar_fcns
-from quail.physics.scalar.functions import FcnType as scalar_fcn_type
 from quail.physics.scalar.functions import SourceType as scalar_source_type
 
 import quail.physics.zerodimensional.functions as zerod_fcns

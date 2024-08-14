@@ -22,13 +22,10 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
-from scipy.optimize import fsolve, root
+from quail.general import pi
+from quail.backend import np
+from quail.physics.base.data import FcnBase, SourceBase
 
-from quail import errors, general
-
-from quail.physics.base.data import (FcnBase, BCWeakRiemann, BCWeakPrescribed,
-        SourceBase, ConvNumFluxBase, DiffNumFluxBase)
 
 class FcnType(Enum):
 	'''
@@ -89,33 +86,33 @@ class ManufacturedSolution(FcnBase):
 
 		# Generated initial condition from sympy
 
-		Uq[:, :, srho] = 0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) -  \
-			0.2*np.cos(np.pi*x2) + 1.0
+		Uq[:, :, srho] = 0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) -  \
+			0.2*np.cos(pi*x2) + 1.0
 
-		S_rhou = (0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(3* \
-			np.pi*x1) + 0.3*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.3*np.cos(np.pi*x2) + 2.0)
+		S_rhou = (0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)*(0.3*np.sin(3* \
+			pi*x1) + 0.3*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.3*np.cos(pi*x2) + 2.0)
 
-		S_rhov = (0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(np.pi*x2) \
-			+ 0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0)
+		S_rhov = (0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)*(0.3*np.sin(pi*x2) \
+			+ 0.3*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0)
 
 		Uq[:, :, srhou] = np.concatenate([S_rhou, S_rhov], axis=2)
 
-		Uq[:, :, srhoE] = (4.0*(0.15*np.sin(3*np.pi*x1) + 0.15* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1)**2 + 4.0*(0.15* \
-			np.sin(np.pi*x2) + 0.15*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.15*np.cos(np.pi*x1) + 1)**2) \
-			*(0.05*np.sin(np.pi*x1) + 0.05*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.1*np.cos(np.pi*x2) + 0.5) + \
-			(1.0*np.sin(np.pi*x2) + 0.5*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 1.0*np.cos(2*np.pi*x1) + \
+		Uq[:, :, srhoE] = (4.0*(0.15*np.sin(3*pi*x1) + 0.15* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1)**2 + 4.0*(0.15* \
+			np.sin(pi*x2) + 0.15*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.15*np.cos(pi*x1) + 1)**2) \
+			*(0.05*np.sin(pi*x1) + 0.05*np.cos(pi*x1)* \
+			np.cos(pi*x2) - 0.1*np.cos(pi*x2) + 0.5) + \
+			(1.0*np.sin(pi*x2) + 0.5*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 1.0*np.cos(2*pi*x1) + \
 			10.0)/(gamma - 1)
 		# End generated code
 
@@ -166,14 +163,14 @@ class TaylorGreenVortexNS(FcnBase):
 		mu = physics.transport.get_viscosity(physics.thermo)
 		nu = mu/rho0
 
-		F = np.exp(-8. * np.pi*np.pi * nu * t)
+		F = np.exp(-8. * pi*pi * nu * t)
 
 		''' Fill state '''
 		state = {
 			'rhoi': rho0*Y0,
-			'p': P0 + 0.25 * rho0 * (np.cos(4.*np.pi * x1) + np.cos(4.*np.pi * x2)) * F * F,
-			'u': u + V0 * np.sin(2.*np.pi * x1) * np.cos(2.*np.pi * x2) * F,
-			'v': v - V0 * np.cos(2.*np.pi * x1) * np.sin(2.*np.pi * x2) * F,
+			'p': P0 + 0.25 * rho0 * (np.cos(4.*pi * x1) + np.cos(4.*pi * x2)) * F * F,
+			'u': u + V0 * np.sin(2.*pi * x1) * np.cos(2.*pi * x2) * F,
+			'v': v - V0 * np.cos(2.*pi * x1) * np.sin(2.*pi * x2) * F,
 		}
 
 		return physics.get_state_from_primitives(**state)
@@ -220,242 +217,242 @@ class ManufacturedSource(SourceBase):
 
 
 		# The following lines of code are generated using sympy
-		S_rho = (-0.3*np.pi*np.sin(np.pi*x1)*np.cos(np.pi*x2) + \
-			0.9*np.pi*np.cos(3*np.pi*x1))*(0.1*np.sin(np.pi*x1) \
-			+ 0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0) + (-0.1*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.1*np.pi* \
-			np.cos(np.pi*x1))*(0.3*np.sin(3*np.pi*x1) + \
-			0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0) + (-0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.3*np.pi* \
-			np.cos(np.pi*x2))*(0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0) + (-0.1*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.2*np.pi* \
-			np.sin(np.pi*x2))*(0.3*np.sin(np.pi*x2) + \
-			0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + \
-			0.3*np.cos(np.pi*x1) + 2.0)
+		S_rho = (-0.3*pi*np.sin(pi*x1)*np.cos(pi*x2) + \
+			0.9*pi*np.cos(3*pi*x1))*(0.1*np.sin(pi*x1) \
+			+ 0.1*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0) + (-0.1*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.1*pi* \
+			np.cos(pi*x1))*(0.3*np.sin(3*pi*x1) + \
+			0.3*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0) + (-0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.3*pi* \
+			np.cos(pi*x2))*(0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0) + (-0.1*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.2*pi* \
+			np.sin(pi*x2))*(0.3*np.sin(pi*x2) + \
+			0.3*np.cos(pi*x1)*np.cos(pi*x2) + \
+			0.3*np.cos(pi*x1) + 2.0)
 
-		S_rhou = -mu*(-0.2*np.pi**2*np.sin(np.pi*x1)* \
-			np.sin(np.pi*x2) - 3.6*np.pi**2*np.sin(3*np.pi*x1) \
-			 - 0.4*np.pi**2*np.cos(np.pi*x1)*np.cos(np.pi*x2)) \
-			- mu*(0.3*np.pi**2*np.sin(np.pi*x1)*np.sin(np.pi*x2) \
-			- 0.3*np.pi**2*np.cos(np.pi*x1)*np.cos(np.pi*x2) - \
-			0.3*np.pi**2*np.cos(np.pi*x2)) + 4.0*(-0.3*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.9*np.pi* \
-			np.cos(3*np.pi*x1))*(0.1*np.sin(np.pi*x1) + \
-			0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)*(0.15*np.sin(3*np.pi*x1) \
-			+ 0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1) + 4.0*(-0.1*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.1*np.pi* \
-			np.cos(np.pi*x1))*(0.15*np.sin(3*np.pi*x1) + 0.15* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1)**2 + (-0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) - 0.3* \
-			np.pi*np.sin(np.pi*x2))*(0.1*np.sin(np.pi*x1) + \
-			0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(np.pi*x2) + \
-			0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0) + (-0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.3*np.pi* \
-			np.cos(np.pi*x2))*(0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(3*np.pi*x1) \
-			+ 0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0) + (-0.1*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.2*np.pi* \
-			np.sin(np.pi*x2))*(0.3*np.sin(3*np.pi*x1) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0)*(0.3*np.sin(np.pi*x2) + \
-			0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0) - 0.5*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) - \
-			2.0*np.pi*np.sin(2*np.pi*x1)
+		S_rhou = -mu*(-0.2*pi**2*np.sin(pi*x1)* \
+			np.sin(pi*x2) - 3.6*pi**2*np.sin(3*pi*x1) \
+			 - 0.4*pi**2*np.cos(pi*x1)*np.cos(pi*x2)) \
+			- mu*(0.3*pi**2*np.sin(pi*x1)*np.sin(pi*x2) \
+			- 0.3*pi**2*np.cos(pi*x1)*np.cos(pi*x2) - \
+			0.3*pi**2*np.cos(pi*x2)) + 4.0*(-0.3*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.9*pi* \
+			np.cos(3*pi*x1))*(0.1*np.sin(pi*x1) + \
+			0.1*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)*(0.15*np.sin(3*pi*x1) \
+			+ 0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1) + 4.0*(-0.1*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.1*pi* \
+			np.cos(pi*x1))*(0.15*np.sin(3*pi*x1) + 0.15* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1)**2 + (-0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) - 0.3* \
+			pi*np.sin(pi*x2))*(0.1*np.sin(pi*x1) + \
+			0.1*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)*(0.3*np.sin(pi*x2) + \
+			0.3*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0) + (-0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.3*pi* \
+			np.cos(pi*x2))*(0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)*(0.3*np.sin(3*pi*x1) \
+			+ 0.3*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0) + (-0.1*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.2*pi* \
+			np.sin(pi*x2))*(0.3*np.sin(3*pi*x1) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0)*(0.3*np.sin(pi*x2) + \
+			0.3*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0) - 0.5*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) - \
+			2.0*pi*np.sin(2*pi*x1)
 
-		S_rhov = -mu*(-0.2*np.pi**2*np.sin(np.pi*x1)* \
-			np.sin(np.pi*x2) - 0.4*np.pi**2*np.sin(np.pi*x2) \
-			- 0.4*np.pi**2*np.cos(np.pi*x1)*np.cos(np.pi*x2)) \
-			 - mu*(0.3*np.pi**2*np.sin(np.pi*x1)* \
-		 	np.sin(np.pi*x2) - 0.3*np.pi**2* \
-		 	np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.3*np.pi**2* \
-		 	np.cos(np.pi*x1)) + (-0.3*np.pi*np.sin(np.pi*x1)* \
-		 	np.cos(np.pi*x2) - 0.3*np.pi*np.sin(np.pi*x1))* \
-		 	(0.1*np.sin(np.pi*x1) + 0.1*np.cos(np.pi*x1)* \
-	 		np.cos(np.pi*x2) - 0.2*np.cos(np.pi*x2) + 1.0)* \
-	 		(0.3*np.sin(3*np.pi*x1) + 0.3*np.cos(np.pi*x1)* \
- 			np.cos(np.pi*x2) + 0.3*np.cos(np.pi*x2) + 2.0) + \
- 			(-0.3*np.pi*np.sin(np.pi*x1)*np.cos(np.pi*x2) + \
-			0.9*np.pi*np.cos(3*np.pi*x1))*(0.1*np.sin(np.pi*x1) \
-			+ 0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - \
-			0.2*np.cos(np.pi*x2) + 1.0)*(0.3*np.sin(np.pi*x2) + \
-			0.3*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0) + (-0.1*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.1*np.pi* \
-			np.cos(np.pi*x1))*(0.3*np.sin(3*np.pi*x1) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0)*(0.3*np.sin(np.pi*x2) + 0.3 \
-			*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0) + 4.0*(-0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.3*np.pi* \
-			np.cos(np.pi*x2))*(0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)*(0.15*np.sin(np.pi*x2) + \
-			0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1) + 1) + 4.0*(-0.1*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.2*np.pi* \
-			np.sin(np.pi*x2))*(0.15*np.sin(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1) + 1)**2 - 0.5*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + \
-			1.0*np.pi*np.cos(np.pi*x2)
+		S_rhov = -mu*(-0.2*pi**2*np.sin(pi*x1)* \
+			np.sin(pi*x2) - 0.4*pi**2*np.sin(pi*x2) \
+			- 0.4*pi**2*np.cos(pi*x1)*np.cos(pi*x2)) \
+			 - mu*(0.3*pi**2*np.sin(pi*x1)* \
+		 	np.sin(pi*x2) - 0.3*pi**2* \
+		 	np.cos(pi*x1)*np.cos(pi*x2) - 0.3*pi**2* \
+		 	np.cos(pi*x1)) + (-0.3*pi*np.sin(pi*x1)* \
+		 	np.cos(pi*x2) - 0.3*pi*np.sin(pi*x1))* \
+		 	(0.1*np.sin(pi*x1) + 0.1*np.cos(pi*x1)* \
+	 		np.cos(pi*x2) - 0.2*np.cos(pi*x2) + 1.0)* \
+	 		(0.3*np.sin(3*pi*x1) + 0.3*np.cos(pi*x1)* \
+ 			np.cos(pi*x2) + 0.3*np.cos(pi*x2) + 2.0) + \
+ 			(-0.3*pi*np.sin(pi*x1)*np.cos(pi*x2) + \
+			0.9*pi*np.cos(3*pi*x1))*(0.1*np.sin(pi*x1) \
+			+ 0.1*np.cos(pi*x1)*np.cos(pi*x2) - \
+			0.2*np.cos(pi*x2) + 1.0)*(0.3*np.sin(pi*x2) + \
+			0.3*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0) + (-0.1*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.1*pi* \
+			np.cos(pi*x1))*(0.3*np.sin(3*pi*x1) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0)*(0.3*np.sin(pi*x2) + 0.3 \
+			*np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0) + 4.0*(-0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.3*pi* \
+			np.cos(pi*x2))*(0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)*(0.15*np.sin(pi*x2) + \
+			0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x1) + 1) + 4.0*(-0.1*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.2*pi* \
+			np.sin(pi*x2))*(0.15*np.sin(pi*x2) + 0.15* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x1) + 1)**2 - 0.5*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + \
+			1.0*pi*np.cos(pi*x2)
 
-		S_rhoE = -mu*(-0.3*np.pi*np.sin(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.3*np.pi*np.sin(np.pi*x1)) \
-			*(-0.3*np.pi*np.sin(np.pi*x1)*np.cos(np.pi*x2) \
-			- 0.3*np.pi*np.sin(np.pi*x1) - 0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) - 0.3*np.pi* \
-			np.sin(np.pi*x2)) - mu*(-0.3*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.9*np.pi* \
-			np.cos(3*np.pi*x1))*(-0.4*np.pi*np.sin(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.2*np.pi*np.sin(np.pi*x2)* \
-			np.cos(np.pi*x1) + 1.2*np.pi*np.cos(3*np.pi*x1) - \
-			0.2*np.pi*np.cos(np.pi*x2)) - mu*(-0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) - 0.3*np.pi* \
-			np.sin(np.pi*x2))*(-0.3*np.pi*np.sin(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.3*np.pi*np.sin(np.pi*x1) - \
-			0.3*np.pi*np.sin(np.pi*x2)*np.cos(np.pi*x1) - 0.3* \
-			np.pi*np.sin(np.pi*x2)) - mu*(-0.3*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.3*np.pi* \
-			np.cos(np.pi*x2))*(0.2*np.pi*np.sin(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.4*np.pi*np.sin(np.pi*x2)* \
-			np.cos(np.pi*x1) - 0.6*np.pi*np.cos(3*np.pi*x1) \
-			+ 0.4*np.pi*np.cos(np.pi*x2)) - mu*(-0.2*np.pi**2* \
-			np.sin(np.pi*x1)*np.sin(np.pi*x2) - 3.6*np.pi**2* \
-			np.sin(3*np.pi*x1) - 0.4*np.pi**2*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2))*(0.3*np.sin(3*np.pi*x1) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0) - mu*(-0.2*np.pi**2* \
-			np.sin(np.pi*x1)*np.sin(np.pi*x2) - 0.4*np.pi**2* \
-			np.sin(np.pi*x2) - 0.4*np.pi**2*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2))*(0.3*np.sin(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0) - mu*(0.3*np.pi**2* \
-			np.sin(np.pi*x1)*np.sin(np.pi*x2) - 0.3*np.pi**2* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.3*np.pi**2* \
-			np.cos(np.pi*x1))*(0.3*np.sin(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x1) + 2.0) - mu*(0.3*np.pi**2* \
-			np.sin(np.pi*x1)*np.sin(np.pi*x2) - 0.3*np.pi**2* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.3*np.pi**2* \
-			np.cos(np.pi*x2))*(0.3*np.sin(3*np.pi*x1) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0) + (-0.3*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.9*np.pi* \
-			np.cos(3*np.pi*x1))*((4.0*(0.15* \
-			np.sin(3*np.pi*x1) + 0.15*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.15*np.cos(np.pi*x2) + 1)**2 \
-			+ 4.0*(0.15*np.sin(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1) + 1)**2)*(0.05*np.sin(np.pi*x1) \
-			+ 0.05*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.1* \
-			np.cos(np.pi*x2) + 0.5) + 1.0*np.sin(np.pi*x2) + \
-			0.5*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 1.0* \
-			np.cos(2*np.pi*x1) + 10.0 + (1.0*np.sin(np.pi*x2) \
-			+ 0.5*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 1.0* \
-			np.cos(2*np.pi*x1) + 10.0)/(gamma - 1)) + (-0.3* \
-			np.pi*np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.3*np.pi* \
-			np.cos(np.pi*x2))*((4.0*(0.15*np.sin(3*np.pi*x1) + \
-			0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1)**2 + 4.0*(0.15* \
-			np.sin(np.pi*x2) + 0.15*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.15*np.cos(np.pi*x1) + 1)**2) \
-			*(0.05*np.sin(np.pi*x1) + 0.05*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.1*np.cos(np.pi*x2) + 0.5) + 1.0 \
-			*np.sin(np.pi*x2) + 0.5*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 1.0*np.cos(2*np.pi*x1) + 10.0 \
-			+ (1.0*np.sin(np.pi*x2) + 0.5*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 1.0*np.cos(2*np.pi*x1) + 10.0) \
-			/(gamma - 1)) + (0.3*np.sin(3*np.pi*x1) + 0.3* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.3* \
-			np.cos(np.pi*x2) + 2.0)*((4.0*(-0.3*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) - 0.3*np.pi* \
-			np.sin(np.pi*x1))*(0.15*np.sin(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1) + 1) + 4.0*(-0.3*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.9* \
-			np.pi*np.cos(3*np.pi*x1))*(0.15*np.sin(3*np.pi*x1) \
-			+ 0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1))*(0.05*np.sin(np.pi*x1) + \
-			0.05*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.1* \
-			np.cos(np.pi*x2) + 0.5) + (-0.05*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) + 0.05*np.pi* \
-			np.cos(np.pi*x1))*(4.0*(0.15*np.sin(3*np.pi*x1) + \
-			0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1)**2 + 4.0*(0.15* \
-			np.sin(np.pi*x2) + 0.15*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.15*np.cos(np.pi*x1) + 1)**2) \
-			- 0.5*np.pi*np.sin(np.pi*x1)*np.cos(np.pi*x2) - \
-			2.0*np.pi*np.sin(2*np.pi*x1) + (-0.5*np.pi* \
-			np.sin(np.pi*x1)*np.cos(np.pi*x2) - 2.0*np.pi* \
-			np.sin(2*np.pi*x1))/(gamma - 1)) + (0.3* \
-			np.sin(np.pi*x2) + 0.3*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.3*np.cos(np.pi*x1) + \
-			2.0)*((4.0*(-0.3*np.pi*np.sin(np.pi*x2)* \
-			np.cos(np.pi*x1) - 0.3*np.pi*np.sin(np.pi*x2))* \
-			(0.15*np.sin(3*np.pi*x1) + 0.15*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.15*np.cos(np.pi*x2) + 1) + \
-			4.0*(-0.3*np.pi*np.sin(np.pi*x2)*np.cos(np.pi*x1) \
-			+ 0.3*np.pi*np.cos(np.pi*x2))*(0.15*np.sin(np.pi*x2) \
-			+ 0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x1) + 1))*(0.05*np.sin(np.pi*x1) + \
-			0.05*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.1* \
-			np.cos(np.pi*x2) + 0.5) + (-0.05*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 0.1*np.pi* \
-			np.sin(np.pi*x2))*(4.0*(0.15*np.sin(3*np.pi*x1) + \
-			0.15*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 0.15* \
-			np.cos(np.pi*x2) + 1)**2 + 4.0*(0.15* \
-			np.sin(np.pi*x2) + 0.15*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 0.15*np.cos(np.pi*x1) + 1)**2) \
-			- 0.5*np.pi*np.sin(np.pi*x2)*np.cos(np.pi*x1) + \
-			1.0*np.pi*np.cos(np.pi*x2) + (-0.5*np.pi* \
-			np.sin(np.pi*x2)*np.cos(np.pi*x1) + 1.0*np.pi* \
-			np.cos(np.pi*x2))/(gamma - 1)) - np.pi**2*kappa* \
-			(-0.2*(0.5*np.sin(np.pi*x1)*np.cos(np.pi*x2) + 2.0* \
-			np.sin(2*np.pi*x1))*(np.sin(np.pi*x1)* \
-			np.cos(np.pi*x2) - np.cos(np.pi*x1))/(0.1* \
-			np.sin(np.pi*x1) + 0.1*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.2*np.cos(np.pi*x2) + 1.0) \
-			+ (0.02*(np.sin(np.pi*x1)*np.cos(np.pi*x2) - \
-			np.cos(np.pi*x1))**2/(0.1*np.sin(np.pi*x1) + 0.1 \
-			*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0) + 0.1*np.sin(np.pi*x1) + \
-			0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2))*(1.0* \
-			np.sin(np.pi*x2) + 0.5*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) + 1.0*np.cos(2*np.pi*x1) + 10.0) \
-			/(0.1*np.sin(np.pi*x1) + 0.1*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.2*np.cos(np.pi*x2) + 1.0) - \
-			0.5*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 4.0* \
-			np.cos(2*np.pi*x1))/(R*(0.1*np.sin(np.pi*x1) + \
-			0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0)) - np.pi**2*kappa*(-2* \
-			(0.5*np.sin(np.pi*x2)*np.cos(np.pi*x1) - 1.0* \
-			np.cos(np.pi*x2))*(0.1*np.cos(np.pi*x1) - 0.2)* \
-			np.sin(np.pi*x2)/(0.1*np.sin(np.pi*x1) + 0.1* \
-			np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0) + ((0.2*np.cos(np.pi*x1) \
-			- 0.4)*np.sin(np.pi*x2)**2/(0.1*np.sin(np.pi*x1) \
-			+ 0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0) + np.cos(np.pi*x2))*(0.1* \
-			np.cos(np.pi*x1) - 0.2)*(1.0*np.sin(np.pi*x2) + 0.5 \
-			*np.cos(np.pi*x1)*np.cos(np.pi*x2) + 1.0* \
-			np.cos(2*np.pi*x1) + 10.0)/(0.1*np.sin(np.pi*x1) \
-			+ 0.1*np.cos(np.pi*x1)*np.cos(np.pi*x2) - 0.2* \
-			np.cos(np.pi*x2) + 1.0) - 1.0*np.sin(np.pi*x2) - \
-			0.5*np.cos(np.pi*x1)*np.cos(np.pi*x2))/(R*(0.1* \
-			np.sin(np.pi*x1) + 0.1*np.cos(np.pi*x1)* \
-			np.cos(np.pi*x2) - 0.2*np.cos(np.pi*x2) + 1.0))
+		S_rhoE = -mu*(-0.3*pi*np.sin(pi*x1)* \
+			np.cos(pi*x2) - 0.3*pi*np.sin(pi*x1)) \
+			*(-0.3*pi*np.sin(pi*x1)*np.cos(pi*x2) \
+			- 0.3*pi*np.sin(pi*x1) - 0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) - 0.3*pi* \
+			np.sin(pi*x2)) - mu*(-0.3*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.9*pi* \
+			np.cos(3*pi*x1))*(-0.4*pi*np.sin(pi*x1)* \
+			np.cos(pi*x2) + 0.2*pi*np.sin(pi*x2)* \
+			np.cos(pi*x1) + 1.2*pi*np.cos(3*pi*x1) - \
+			0.2*pi*np.cos(pi*x2)) - mu*(-0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) - 0.3*pi* \
+			np.sin(pi*x2))*(-0.3*pi*np.sin(pi*x1)* \
+			np.cos(pi*x2) - 0.3*pi*np.sin(pi*x1) - \
+			0.3*pi*np.sin(pi*x2)*np.cos(pi*x1) - 0.3* \
+			pi*np.sin(pi*x2)) - mu*(-0.3*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.3*pi* \
+			np.cos(pi*x2))*(0.2*pi*np.sin(pi*x1)* \
+			np.cos(pi*x2) - 0.4*pi*np.sin(pi*x2)* \
+			np.cos(pi*x1) - 0.6*pi*np.cos(3*pi*x1) \
+			+ 0.4*pi*np.cos(pi*x2)) - mu*(-0.2*pi**2* \
+			np.sin(pi*x1)*np.sin(pi*x2) - 3.6*pi**2* \
+			np.sin(3*pi*x1) - 0.4*pi**2*np.cos(pi*x1)* \
+			np.cos(pi*x2))*(0.3*np.sin(3*pi*x1) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0) - mu*(-0.2*pi**2* \
+			np.sin(pi*x1)*np.sin(pi*x2) - 0.4*pi**2* \
+			np.sin(pi*x2) - 0.4*pi**2*np.cos(pi*x1)* \
+			np.cos(pi*x2))*(0.3*np.sin(pi*x2) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0) - mu*(0.3*pi**2* \
+			np.sin(pi*x1)*np.sin(pi*x2) - 0.3*pi**2* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.3*pi**2* \
+			np.cos(pi*x1))*(0.3*np.sin(pi*x2) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x1) + 2.0) - mu*(0.3*pi**2* \
+			np.sin(pi*x1)*np.sin(pi*x2) - 0.3*pi**2* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.3*pi**2* \
+			np.cos(pi*x2))*(0.3*np.sin(3*pi*x1) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0) + (-0.3*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.9*pi* \
+			np.cos(3*pi*x1))*((4.0*(0.15* \
+			np.sin(3*pi*x1) + 0.15*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.15*np.cos(pi*x2) + 1)**2 \
+			+ 4.0*(0.15*np.sin(pi*x2) + 0.15* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x1) + 1)**2)*(0.05*np.sin(pi*x1) \
+			+ 0.05*np.cos(pi*x1)*np.cos(pi*x2) - 0.1* \
+			np.cos(pi*x2) + 0.5) + 1.0*np.sin(pi*x2) + \
+			0.5*np.cos(pi*x1)*np.cos(pi*x2) + 1.0* \
+			np.cos(2*pi*x1) + 10.0 + (1.0*np.sin(pi*x2) \
+			+ 0.5*np.cos(pi*x1)*np.cos(pi*x2) + 1.0* \
+			np.cos(2*pi*x1) + 10.0)/(gamma - 1)) + (-0.3* \
+			pi*np.sin(pi*x2)*np.cos(pi*x1) + 0.3*pi* \
+			np.cos(pi*x2))*((4.0*(0.15*np.sin(3*pi*x1) + \
+			0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1)**2 + 4.0*(0.15* \
+			np.sin(pi*x2) + 0.15*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.15*np.cos(pi*x1) + 1)**2) \
+			*(0.05*np.sin(pi*x1) + 0.05*np.cos(pi*x1)* \
+			np.cos(pi*x2) - 0.1*np.cos(pi*x2) + 0.5) + 1.0 \
+			*np.sin(pi*x2) + 0.5*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 1.0*np.cos(2*pi*x1) + 10.0 \
+			+ (1.0*np.sin(pi*x2) + 0.5*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 1.0*np.cos(2*pi*x1) + 10.0) \
+			/(gamma - 1)) + (0.3*np.sin(3*pi*x1) + 0.3* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.3* \
+			np.cos(pi*x2) + 2.0)*((4.0*(-0.3*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) - 0.3*pi* \
+			np.sin(pi*x1))*(0.15*np.sin(pi*x2) + 0.15* \
+			np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x1) + 1) + 4.0*(-0.3*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.9* \
+			pi*np.cos(3*pi*x1))*(0.15*np.sin(3*pi*x1) \
+			+ 0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1))*(0.05*np.sin(pi*x1) + \
+			0.05*np.cos(pi*x1)*np.cos(pi*x2) - 0.1* \
+			np.cos(pi*x2) + 0.5) + (-0.05*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) + 0.05*pi* \
+			np.cos(pi*x1))*(4.0*(0.15*np.sin(3*pi*x1) + \
+			0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1)**2 + 4.0*(0.15* \
+			np.sin(pi*x2) + 0.15*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.15*np.cos(pi*x1) + 1)**2) \
+			- 0.5*pi*np.sin(pi*x1)*np.cos(pi*x2) - \
+			2.0*pi*np.sin(2*pi*x1) + (-0.5*pi* \
+			np.sin(pi*x1)*np.cos(pi*x2) - 2.0*pi* \
+			np.sin(2*pi*x1))/(gamma - 1)) + (0.3* \
+			np.sin(pi*x2) + 0.3*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.3*np.cos(pi*x1) + \
+			2.0)*((4.0*(-0.3*pi*np.sin(pi*x2)* \
+			np.cos(pi*x1) - 0.3*pi*np.sin(pi*x2))* \
+			(0.15*np.sin(3*pi*x1) + 0.15*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.15*np.cos(pi*x2) + 1) + \
+			4.0*(-0.3*pi*np.sin(pi*x2)*np.cos(pi*x1) \
+			+ 0.3*pi*np.cos(pi*x2))*(0.15*np.sin(pi*x2) \
+			+ 0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x1) + 1))*(0.05*np.sin(pi*x1) + \
+			0.05*np.cos(pi*x1)*np.cos(pi*x2) - 0.1* \
+			np.cos(pi*x2) + 0.5) + (-0.05*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 0.1*pi* \
+			np.sin(pi*x2))*(4.0*(0.15*np.sin(3*pi*x1) + \
+			0.15*np.cos(pi*x1)*np.cos(pi*x2) + 0.15* \
+			np.cos(pi*x2) + 1)**2 + 4.0*(0.15* \
+			np.sin(pi*x2) + 0.15*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 0.15*np.cos(pi*x1) + 1)**2) \
+			- 0.5*pi*np.sin(pi*x2)*np.cos(pi*x1) + \
+			1.0*pi*np.cos(pi*x2) + (-0.5*pi* \
+			np.sin(pi*x2)*np.cos(pi*x1) + 1.0*pi* \
+			np.cos(pi*x2))/(gamma - 1)) - pi**2*kappa* \
+			(-0.2*(0.5*np.sin(pi*x1)*np.cos(pi*x2) + 2.0* \
+			np.sin(2*pi*x1))*(np.sin(pi*x1)* \
+			np.cos(pi*x2) - np.cos(pi*x1))/(0.1* \
+			np.sin(pi*x1) + 0.1*np.cos(pi*x1)* \
+			np.cos(pi*x2) - 0.2*np.cos(pi*x2) + 1.0) \
+			+ (0.02*(np.sin(pi*x1)*np.cos(pi*x2) - \
+			np.cos(pi*x1))**2/(0.1*np.sin(pi*x1) + 0.1 \
+			*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0) + 0.1*np.sin(pi*x1) + \
+			0.1*np.cos(pi*x1)*np.cos(pi*x2))*(1.0* \
+			np.sin(pi*x2) + 0.5*np.cos(pi*x1)* \
+			np.cos(pi*x2) + 1.0*np.cos(2*pi*x1) + 10.0) \
+			/(0.1*np.sin(pi*x1) + 0.1*np.cos(pi*x1)* \
+			np.cos(pi*x2) - 0.2*np.cos(pi*x2) + 1.0) - \
+			0.5*np.cos(pi*x1)*np.cos(pi*x2) - 4.0* \
+			np.cos(2*pi*x1))/(R*(0.1*np.sin(pi*x1) + \
+			0.1*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0)) - pi**2*kappa*(-2* \
+			(0.5*np.sin(pi*x2)*np.cos(pi*x1) - 1.0* \
+			np.cos(pi*x2))*(0.1*np.cos(pi*x1) - 0.2)* \
+			np.sin(pi*x2)/(0.1*np.sin(pi*x1) + 0.1* \
+			np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0) + ((0.2*np.cos(pi*x1) \
+			- 0.4)*np.sin(pi*x2)**2/(0.1*np.sin(pi*x1) \
+			+ 0.1*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0) + np.cos(pi*x2))*(0.1* \
+			np.cos(pi*x1) - 0.2)*(1.0*np.sin(pi*x2) + 0.5 \
+			*np.cos(pi*x1)*np.cos(pi*x2) + 1.0* \
+			np.cos(2*pi*x1) + 10.0)/(0.1*np.sin(pi*x1) \
+			+ 0.1*np.cos(pi*x1)*np.cos(pi*x2) - 0.2* \
+			np.cos(pi*x2) + 1.0) - 1.0*np.sin(pi*x2) - \
+			0.5*np.cos(pi*x1)*np.cos(pi*x2))/(R*(0.1* \
+			np.sin(pi*x1) + 0.1*np.cos(pi*x1)* \
+			np.cos(pi*x2) - 0.2*np.cos(pi*x2) + 1.0))
 		# End of generated code
 
 

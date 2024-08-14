@@ -22,11 +22,10 @@
 #
 # ------------------------------------------------------------------------ #
 from matplotlib import pyplot as plt
-import numpy as np
 
+from quail.backend import np
 from quail import errors
 
-import quail.meshing.meshbase as mesh_defs
 import quail.meshing.tools as mesh_tools
 
 import quail.numerics.basis.tools as basis_tools

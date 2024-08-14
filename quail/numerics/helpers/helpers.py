@@ -20,7 +20,7 @@
 #       Contains general numerics-related helper functions
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
+from quail.backend import np
 
 
 def get_element_mean(Uq, quad_wts, djac, vol):

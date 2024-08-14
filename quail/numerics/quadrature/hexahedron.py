@@ -20,7 +20,7 @@
 #		Contains functions to evaluate quadrature for hexahedral shapes
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
+from quail.backend import np
 import quail.numerics.quadrature.segment as qseg
 
 

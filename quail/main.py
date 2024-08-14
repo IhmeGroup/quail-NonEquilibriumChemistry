@@ -23,12 +23,12 @@
 # ------------------------------------------------------------------------ #
 import argparse
 import importlib
-import numpy as np
 import os
 import sys
 
 import quail.defaultparams as default_deck
 from quail import errors
+from quail.backend import set_backend
 from quail.general import ShapeType, SolverType, PhysicsType, ThermoType, TransportType
 
 import quail.meshing.common as mesh_common
@@ -196,6 +196,7 @@ def read_inputs(deck):
         deck: input deck (modified)
     '''
     # Defaults
+    computation_params = default_deck.Computation
     restart_params = default_deck.Restart
     stepper_params = default_deck.TimeStepping
     numerics_params = default_deck.Numerics
@@ -208,6 +209,10 @@ def read_inputs(deck):
     output_params = default_deck.Output
 
     # Overwrite
+    try:
+        computation_params = overwrite_params(computation_params, deck.Computation)
+    except AttributeError:
+        pass
     try:
         restart_params = overwrite_params(restart_params, deck.Restart)
     except AttributeError:
@@ -252,14 +257,14 @@ def read_inputs(deck):
     except AttributeError:
         pass
 
-    return restart_params, stepper_params, numerics_params, mesh_params, \
-            physics_params, IC_params, exact_params, BC_params, \
-            source_params, output_params
+    return (computation_params, restart_params, stepper_params,
+            numerics_params, mesh_params, physics_params, IC_params,
+            exact_params, BC_params, source_params, output_params)
 
 
-def print_info(restart_params, stepper_params, numerics_params, mesh_params,
-        physics_params, IC_params, exact_params, BC_params, source_params,
-        output_params):
+def print_info(computation_params, restart_params, stepper_params,
+               numerics_params, mesh_params, physics_params, IC_params,
+               exact_params, BC_params, source_params, output_params):
     print()
     print("=================================================")
     print("||                                             ||")
@@ -279,6 +284,9 @@ def print_info(restart_params, stepper_params, numerics_params, mesh_params,
         print("PRINTING INPUT DECK")
         print("-------------------")
         print()
+        print("Computation:")
+        print("--------")
+        print_dict(computation_params)
         print("Restart:")
         print("--------")
         print_dict(restart_params)
@@ -328,13 +336,18 @@ def driver(deck):
     '''
     Input deck
     '''
-    restart_params, stepper_params, numerics_params, mesh_params, \
-            physics_params, IC_params, exact_params, BC_params, \
-            source_params, output_params = read_inputs(deck)
+    (computation_params, restart_params, stepper_params, numerics_params,
+     mesh_params, physics_params, IC_params, exact_params, BC_params,
+     source_params, output_params) = read_inputs(deck)
     # Print info
-    print_info(restart_params, stepper_params, numerics_params, mesh_params,
-            physics_params, IC_params, exact_params, BC_params,
-            source_params, output_params)
+    print_info(computation_params, restart_params, stepper_params,
+               numerics_params, mesh_params, physics_params, IC_params,
+               exact_params, BC_params, source_params, output_params)
+
+    '''
+    Computational Backend
+    '''
+    set_backend(computation_params['Backend'])
 
     '''
     Mesh

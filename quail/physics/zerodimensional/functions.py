@@ -22,13 +22,9 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
-from scipy.optimize import root
 
-from quail.external.optional_cantera import ct
-
-from quail.physics.base.data import (FcnBase, BCWeakRiemann, BCWeakPrescribed,
-		SourceBase, ConvNumFluxBase)
+from quail.backend import np
+from quail.physics.base.data import FcnBase, SourceBase
 
 
 class FcnType(Enum):

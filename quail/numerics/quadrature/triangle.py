@@ -20,8 +20,7 @@
 #		Contains functions to evaluate quadrature for triangle shapes
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
-
+from quail.backend import np
 from quail import general
 import quail.numerics.quadrature.quadrilateral as qquad
 

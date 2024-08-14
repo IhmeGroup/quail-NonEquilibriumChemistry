@@ -21,18 +21,14 @@
 #
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
-import numpy as np
-
-from quail.general import BasisType, ShapeType, ModalOrNodal, \
-	QuadratureType, NodeType
-
-import quail.meshing.gmsh as mesh_gmsh
+from quail.backend import np
+from quail.general import (BasisType, ShapeType, ModalOrNodal,
+                           QuadratureType)
 
 import quail.numerics.basis.tools as basis_tools
-import quail.numerics.basis.basis as basis_defs
 
-from quail.numerics.quadrature import segment, quadrilateral, triangle, \
-		hexahedron, prism
+from quail.numerics.quadrature import (segment, quadrilateral, triangle,
+                                       hexahedron, prism)
 
 
 class ShapeBase(ABC):

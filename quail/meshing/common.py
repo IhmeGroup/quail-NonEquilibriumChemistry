@@ -21,10 +21,7 @@
 #
 # ------------------------------------------------------------------------ #
 import copy
-import numpy as np
-
-from quail import general
-
+from quail.backend import np
 import quail.meshing.meshbase as mesh_defs
 import quail.numerics.basis.basis as basis_defs
 

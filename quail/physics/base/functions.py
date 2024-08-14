@@ -22,10 +22,10 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
 
-from quail.physics.base.data import FcnBase, BCWeakRiemann, \
-    BCWeakPrescribed, ConvNumFluxBase, DiffNumFluxBase
+from quail.backend import np
+from quail.physics.base.data import (FcnBase, BCWeakRiemann, BCWeakPrescribed,
+                                     ConvNumFluxBase, DiffNumFluxBase)
 
 
 class FcnType(Enum):

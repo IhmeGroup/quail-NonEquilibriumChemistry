@@ -20,28 +20,16 @@
 #       Contains class definitions for 1D and 2D Navier-Stokes equations.
 #
 # ------------------------------------------------------------------------ #
-from enum import Enum
-import numpy as np
+from quail.backend import np
+from quail import general
 
-from quail import errors, general
-
-from quail.physics.base import base
 import quail.physics.base.functions as base_fcns
 from quail.physics.base.functions import BCType as base_BC_type
-from quail.physics.base.functions import ConvNumFluxType as base_conv_num_flux_type
 from quail.physics.base.functions import DiffNumFluxType as base_diff_num_flux_type
-from quail.physics.base.functions import FcnType as base_fcn_type
 
 from quail.physics.euler import euler
-import quail.physics.euler.functions as euler_fcns
-from quail.physics.euler.functions import BCType as euler_BC_type
-from quail.physics.euler.functions import ConvNumFluxType as \
-        euler_conv_num_flux_type
-from quail.physics.euler.functions import FcnType as euler_fcn_type
-from quail.physics.euler.functions import SourceType as euler_source_type
 
 import quail.physics.navierstokes.functions as navierstokes_fcns
-from quail.physics.navierstokes.functions import BCType as navierstokes_bc_type
 from quail.physics.navierstokes.functions import FcnType as navierstokes_fcn_type
 from quail.physics.navierstokes.functions import SourceType as \
         navierstokes_source_type

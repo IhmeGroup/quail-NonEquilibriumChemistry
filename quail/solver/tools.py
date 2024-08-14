@@ -20,9 +20,9 @@
 #       Contains additional methods (tools) for the DG solver class
 #
 # ------------------------------------------------------------------------ #
-import numpy as np
 import sys
 
+from quail.backend import np
 from quail import general
 import quail.numerics.basis.tools as basis_tools
 from quail.numerics.helpers import helpers

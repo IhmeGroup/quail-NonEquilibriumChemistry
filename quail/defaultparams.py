@@ -21,6 +21,13 @@
 #
 # ------------------------------------------------------------------------ #
 
+''' Computational backend parameters '''
+Computation = {
+	"Backend" : 'numpy',
+		# Backend library providing array abstraction and math operations
+}
+
+
 ''' Restart parameters '''
 Restart = {
 	"File" : None,

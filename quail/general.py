@@ -21,10 +21,10 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
+import numpy
 
 from quail import defaultparams
-
+from quail.backend import np
 
 '''
 --------
@@ -43,7 +43,9 @@ Constants
 
 # "Zero"
 eps = 1.e-15
-
+pi = numpy.pi
+nan = numpy.nan
+inf = numpy.inf
 
 '''
 -------------

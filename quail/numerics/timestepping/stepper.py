@@ -21,13 +21,10 @@
 #
 # ------------------------------------------------------------------------ #
 from abc import ABC, abstractmethod
-import numpy as np
-from scipy.optimize import fsolve, root
 
+from quail.backend import np
 from quail.general import StepperType, SourceStepperType
 
-import quail.numerics.basis.tools as basis_tools
-from quail.numerics.helpers import helpers
 import quail.numerics.timestepping.tools as stepper_tools
 from quail.numerics.timestepping import source_stepper
 

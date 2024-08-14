@@ -22,11 +22,12 @@
 #
 # ------------------------------------------------------------------------ #
 from enum import Enum, auto
-import numpy as np
+
+from quail.general import pi
+from quail.backend import np
 from scipy.optimize import root
 
-from quail.physics.base.data import (FcnBase, BCWeakRiemann,
-        BCWeakPrescribed, SourceBase, ConvNumFluxBase)
+from quail.physics.base.data import FcnBase, SourceBase, ConvNumFluxBase
 
 
 class FcnType(Enum):
@@ -88,7 +89,7 @@ class Sine(FcnBase):
 	omega: float
 		frequency
 	'''
-	def __init__(self, omega=2*np.pi):
+	def __init__(self, omega=2*pi):
 		'''
 		This method initializes the attributes.
 
@@ -120,7 +121,7 @@ class DampingSine(FcnBase):
 	nu: float
 		damping parameter
 	'''
-	def __init__(self, omega=2*np.pi, nu=1.):
+	def __init__(self, omega=2*pi, nu=1.):
 		'''
 		This method initializes the attributes.
 
@@ -174,7 +175,7 @@ class Gaussian(FcnBase):
 
 		r = np.linalg.norm(x[:] - self.x0 - physics.c*t, axis=2,
 				keepdims=True)
-		Uq = 1./(self.sig*np.sqrt(2.*np.pi))**float(physics.NDIMS) * \
+		Uq = 1./(self.sig*np.sqrt(2.*pi))**float(physics.NDIMS) * \
 				np.exp(-r**2./(2.*self.sig**2.))
 
 		return Uq
@@ -255,7 +256,7 @@ class SineBurgers(FcnBase):
 	omega: float
 		frequency
 	'''
-	def __init__(self, omega=2*np.pi):
+	def __init__(self, omega=2*pi):
 		'''
 		This method initializes the attributes.
 

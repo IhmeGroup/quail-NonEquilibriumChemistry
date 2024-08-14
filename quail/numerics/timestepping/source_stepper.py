@@ -5,8 +5,8 @@
 #       Contains solvers for operator splitting schemes in stepper.py
 #
 # ------------------------------------------------------------------------ #
-from abc import ABC, abstractmethod
-import numpy as np
+from abc import ABC
+from quail.backend import np
 import scipy
 from scipy.integrate import ode
 
