@@ -1,7 +1,7 @@
 TimeStepping = {
 	"FinalTime" : 1e-2,
 	"CFL" : 0.015,
-	"TimeStepper" : "SSPRK3",
+	"TimeStepper" : "LSSSPRK3",
 }
 
 Numerics = {
@@ -32,6 +32,7 @@ Physics = {
 	"ConvFluxNumerical" : "Roe",
 	"DiffFluxNumerical" : "SIP",
 	"GasConstant" : 1.0,
+        "ThermoModel" : "CaloricallyPerfectGas",
 	"TransportModel" : "Constant",
 	"Viscosity" : 1e-1,
 	"PrandtlNumber" : 0.71,
