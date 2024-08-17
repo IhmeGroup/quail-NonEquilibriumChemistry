@@ -176,10 +176,10 @@ def initialize_artificial_viscosity(solver):
 		av_solver: solver initialized for the AV pde-smoothing equation
 	'''
 	# Initialize AV-smoothing physics and solver
-	import defaultparams as default_deck
-	import physics.scalar.scalar as scalar
-	import physics.navierstokes.navierstokes as navierstokes
-	import solver.DG as DG
+	import quail.defaultparams as default_deck
+	from quail.physics.scalar import scalar
+	from quail.physics.navierstokes import navierstokes
+	from quail.solver import DG
 
 	# AV is only defined for Navier Stokes flow physics
 	if not isinstance(solver.physics, navierstokes.NavierStokes):
