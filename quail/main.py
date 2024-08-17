@@ -196,16 +196,16 @@ def read_inputs(deck):
         deck: input deck (modified)
     '''
     # Defaults
-    restart_params = default_deck.Restart
-    stepper_params = default_deck.TimeStepping
-    numerics_params = default_deck.Numerics
-    mesh_params = default_deck.Mesh
-    physics_params = default_deck.Physics
-    IC_params = default_deck.InitialCondition
-    exact_params = default_deck.ExactSolution
-    BC_params = default_deck.BoundaryConditions
-    source_params = default_deck.SourceTerms
-    output_params = default_deck.Output
+    restart_params = default_deck.Restart.copy()
+    stepper_params = default_deck.TimeStepping.copy()
+    numerics_params = default_deck.Numerics.copy()
+    mesh_params = default_deck.Mesh.copy()
+    physics_params = default_deck.Physics.copy()
+    IC_params = default_deck.InitialCondition.copy()
+    exact_params = default_deck.ExactSolution.copy()
+    BC_params = default_deck.BoundaryConditions.copy()
+    source_params = default_deck.SourceTerms.copy()
+    output_params = default_deck.Output.copy()
 
     # Overwrite
     try:
