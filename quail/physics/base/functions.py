@@ -28,6 +28,8 @@ from quail.physics.base.data import (FcnBase, BCWeakRiemann, BCWeakPrescribed,
                                      ConvNumFluxBase, DiffNumFluxBase,
                                      SourceBase)
 
+from quail.numerics.helpers import helpers
+import quail.solver.tools as solver_tools
 
 class FcnType(Enum):
     '''
