@@ -316,8 +316,8 @@ def calculate_artificial_viscosity(solver, mesh, shock_indicator=None, av_param=
 	S_high = np.maximum(av_max_elems, a_max*h_bar/np.maximum(1, p))
 	S_low = 0.01*S_high
 	# Extend to quadrature points
-	S_high = np.expand_dims(S_high, axis=(1, 2))
-	S_low = np.expand_dims(S_low, axis=(1, 2))
+	S_high = np.repeat(S_high[:, None, None], nq, axis=1)
+	S_low = np.repeat(S_low[:, None, None], nq, axis=1)
 	# Filter smoothed AV
 	av_low = av < S_low
 	av[av_low] = 0
@@ -362,12 +362,12 @@ def calculate_artificial_viscosity_flux(mesh, physics, Uq, gUq, av, IDs=None):
 	h_bar = np.expand_dims(h_bar, axis=(1, 2))
 
 	# Apply enthalpy-preservation correction to gradient
-	srhoE = physics.get_state_slice("Energy")
-	dP = physics.compute_pressure_gradient(Uq, gUq)[:, :, None, :]
-	gUq[:, :, srhoE, :] += dP
+	irhoE = physics.get_state_index("Energies")
+	dP = physics.compute_pressure_gradient(Uq, gUq)
+	gUq[:, :, irhoE, :] += dP
 
 	# Compute AV flux
-	F = av/h_bar * np.einsum('ilm,ijkm->ijkl', h, gUq)
+	F = (av/h_bar)[..., None] * np.einsum('ilm,ijkm->ijkl', h, gUq)
 
 	return F # [ne, nq, ns, ndims]
 
