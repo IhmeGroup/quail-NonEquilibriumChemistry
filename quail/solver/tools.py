@@ -197,11 +197,19 @@ def initialize_artificial_viscosity(solver):
 	# Initial condition (empty AV field)
 	iparams = {"state": [0]}
 	av_physics.set_IC(IC_type="Uniform", **iparams)
-	# Boundary conditions (dirichlet along body, Neumann along other boundaries)
-	av_physics.BCs = dict.fromkeys(mesh.boundary_groups.keys())
-	av_physics.set_BC("inflow", "Extrapolate")
-	av_physics.set_BC("outflow", "Extrapolate")
-	av_physics.set_BC("body", "StateAll", "Uniform", **{"state": [0]})
+
+	# Boundary conditions
+	boundary_names = mesh.boundary_groups.keys()
+	av_physics.BCs = dict.fromkeys(boundary_names)
+	for bname in boundary_names:
+		# Check if this is a wall boundary by checking the class name - should
+		# find a better way than this.
+		if "Wall" in repr(solver.physics.BCs[bname]):
+			# Set Dirichlet along walls
+			av_physics.set_BC(bname, "StateAll", "Uniform", **{"state": [0]})
+		else:
+			# Neumann along other boundaries
+			av_physics.set_BC(bname, "Extrapolate")
 
 	# Numerics parameters (same as larger flow solver)
 	numerics_params = default_deck.Numerics.copy()
@@ -308,8 +316,8 @@ def calculate_artificial_viscosity(solver, mesh, shock_indicator=None, av_param=
 	S_high = np.maximum(av_max_elems, a_max*h_bar/np.maximum(1, p))
 	S_low = 0.01*S_high
 	# Extend to quadrature points
-	S_high = np.expand_dims(S_high, axis=(1, 2)); S_high = np.repeat(S_high, nq, axis=1)
-	S_low = np.expand_dims(S_low, axis=(1, 2)); S_low = np.repeat(S_low, nq, axis=1)
+	S_high = np.expand_dims(S_high, axis=(1, 2))
+	S_low = np.expand_dims(S_low, axis=(1, 2))
 	# Filter smoothed AV
 	av_low = av < S_low
 	av[av_low] = 0
@@ -342,37 +350,24 @@ def calculate_artificial_viscosity_flux(mesh, physics, Uq, gUq, av, IDs=None):
 	--------
 		F: the artificial viscosity flux
 	'''
-	# Extract
-	ne, nq, ns = Uq.shape
-	nd = mesh.ndims
 	if IDs is None:
-		IDs = np.arange(mesh.num_elems)
+		# Slice over all elements
+		IDs = np.s_[:]
 
 	# Mesh metric
 	h = mesh.inv_metric_tensor[IDs]
 	h_bar = mesh.length_scale[IDs]
 
 	# Extend dimensions
-	h = np.expand_dims(h, axis=(1, 2))
 	h_bar = np.expand_dims(h_bar, axis=(1, 2))
 
 	# Apply enthalpy-preservation correction to gradient
 	srhoE = physics.get_state_slice("Energy")
-	dP = physics.compute_pressure_gradient(Uq, gUq)
-	dP = dP[:, :, np.newaxis, :]
+	dP = physics.compute_pressure_gradient(Uq, gUq)[:, :, None, :]
 	gUq[:, :, srhoE, :] += dP
 
 	# Compute AV flux
-	F = np.empty(Uq.shape + (nd,)) # [n, nq, ns, ndims]
-	gUx = gUq[:, :, :, 0]
-	gUy = gUq[:, :, :, 1]
-	h11 = h[:, :, :, 0, 0]
-	h12 = h[:, :, :, 0, 1]
-	h21 = h[:, :, :, 1, 0]
-	h22 = h[:, :, :, 1, 1]
-
-	F[:, :, :, 0] = av/h_bar * (h11*gUx + h12*gUy)
-	F[:, :, :, 1] = av/h_bar * (h21*gUx + h22*gUy)
+	F = av/h_bar * np.einsum('ilm,ijkm->ijkl', h, gUq)
 
 	return F # [ne, nq, ns, ndims]
 
@@ -550,7 +545,7 @@ def get_ip_eta(mesh, order):
 	i = order
 
 	if i > 8:
-		i = 8;
+		i = 8
 	etas = np.array([1., 4., 12., 12., 20., 30., 35., 45., 50.])
 
 	return etas[i] * mesh.gbasis.NFACES
