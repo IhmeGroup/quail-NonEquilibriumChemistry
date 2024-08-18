@@ -388,6 +388,10 @@ def driver(deck):
         mesh_tools.make_periodic_translational(mesh, x1=pb[0], x2=pb[1],
                 y1=pb[2], y2=pb[3])
 
+    if numerics_params["ArtificialViscosity"]:
+        # Need to compute mesh metrics for AV
+        mesh.create_metric_tensor()
+
 
     '''
     Physics
