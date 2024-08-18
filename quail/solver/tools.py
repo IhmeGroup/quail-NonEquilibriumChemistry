@@ -188,7 +188,7 @@ def initialize_artificial_viscosity(solver):
 	# Extract mesh
 	mesh = solver.mesh
 	# Create physics object (using scalar diffusive physics)
-	av_physics = scalar.ConstAdvDiffScalar2D()
+	av_physics = scalar.ConstAdvDiffScalar2D(NDIMS=mesh.ndims)
 	av_physics.set_conv_num_flux("LaxFriedrichs")
 	av_physics.set_diff_num_flux("SIP")
 	pparams = {"ConstXVelocity": 0., "ConstYVelocity": 0.,
