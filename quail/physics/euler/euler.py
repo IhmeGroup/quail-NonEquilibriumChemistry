@@ -203,6 +203,8 @@ class Euler(base.PhysicsBase):
             "TotalEnthalpy": "H",
             "SoundSpeed": "c",
             "MaxWaveSpeed": "\\lambda",
+            "Viscosity": "\\mu",
+            "ThermalConductivity": "\\kappa",
         }
 
         # Handle multi-species
@@ -426,6 +428,13 @@ class Euler(base.PhysicsBase):
             # |u| + c
             velmag = self.compute_variable("VelocityMagnitude", Uq)
             varq = velmag + self.thermo.c
+        elif self.transport is not None:
+            if self.match_variable(vname, "Viscosity"):
+                varq = self.transport.get_viscosity(self.thermo)
+            elif self.match_variable(vname, "ThermalConductivity"):
+                varq = self.transport.get_thermal_conductivity(self.thermo)
+            else:
+                raise NotImplementedError
         else:
             raise NotImplementedError
 
