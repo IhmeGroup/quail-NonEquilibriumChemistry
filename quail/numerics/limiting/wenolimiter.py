@@ -218,7 +218,7 @@ class WENO(base.LimiterBase):
 		Vc = np.einsum('elij, elj -> eli', self.left_eigen, Uc)
 
 		# Determine if the elements requires limiting
-		shock_indicated = self.shock_indicator(self, solver, Uc)
+		shock_indicated = solver.shock_indicator(self, solver, Uc)
 
 		# Unpack limiter info from shock indicator
 		p0 = np.einsum('ebij, elj -> eli', self.left_eigen, self.Um_elem)
