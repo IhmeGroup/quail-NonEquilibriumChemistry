@@ -32,8 +32,17 @@ import quail.numerics.basis.basis as basis_defs
 
 # Vectorize some scipy.linalg functions
 sqrtm = np.vectorize(scipy.linalg.sqrtm, signature='(n,m)->(n,m)')
-logm = np.vectorize(scipy.linalg.logm, signature='(n,m)->(n,m)')
-expm = np.vectorize(scipy.linalg.expm, signature='(n,m)->(n,m)')
+
+# logm = np.vectorize(scipy.linalg.logm, signature='(n,m)->(n,m)')
+# Workaround for a strange bug
+def logm(A, **kwargs):
+    for i in range(A.shape[0]):
+        A[i, :, :] = scipy.linalg.logm(A[i, :, :])
+    return A
+
+# expm = np.vectorize(scipy.linalg.expm, signature='(n,m)->(n,m)')
+expm = scipy.linalg.expm # Already vectorized in SciPy >= 1.9.0
+
 fractional_matrix_power = np.vectorize(scipy.linalg.fractional_matrix_power,
                                        excluded=[1], signature='(n,m)->(n,m)')
 
@@ -309,11 +318,11 @@ class Mesh():
 
             elemL.face_to_neighbors[faceL_ID] = elemR_ID
             elemR.face_to_neighbors[faceR_ID] = elemL_ID
-    
+
     def get_simplex_implied_metrics(self):
         '''
         Computes the simplex-implied metrics and simplex-to-vertex mapping.
-        
+
         Element-implied metrics are defined for simplex elements. If the mesh
         contains non-simplex elements, they will first be triangulated.
 
@@ -348,7 +357,7 @@ class Mesh():
             tri = scipy.spatial.Delaunay(node_ref)
             simplices = tri.simplices
             num_simplex_per_elem = tri.nsimplex
-        
+
         # Create a lookup from each vertex to each simplex it borders
         vertex_to_simplex = [
             np.array([i for i, s in enumerate(simplices) if vertex in s])
@@ -360,7 +369,7 @@ class Mesh():
             with open('simplex_metric.pkl', 'rb') as f:
                 simplex_metric_tensor = pickle.load(f)
                 node_to_simplex_IDs = pickle.load(f)
-            
+
             # If it seems to match the current mesh, return it
             if (simplex_metric_tensor.shape == (num_elems*num_simplex_per_elem, ndims, ndims) and
                 len(node_to_simplex_IDs) == num_nodes):
@@ -372,7 +381,7 @@ class Mesh():
         # Set up mapping
         node_to_simplex_IDs = [np.empty(shape=(0,), dtype=int)
                                for i in range(num_nodes)]
-        
+
         # Define all edges for each simplex
         idx = np.stack(np.triu_indices(num_nodes_per_simplex, k=1), axis=-1)
         edge_indices = simplices[:, idx].reshape((-1, 2))  # [nsimplex*nedges, 2]
@@ -420,9 +429,9 @@ class Mesh():
             pickle.dump(simplex_metric_tensor, f)
             pickle.dump(node_to_simplex_IDs, f)
 
-        # Flatten first two dimensions		
+        # Flatten first two dimensions
         return simplex_metric_tensor, node_to_simplex_IDs
-    
+
     def get_vertex_metrics(self):
         '''
         Computes the affine-invariant Riemannian metric tensors at each nodes
@@ -440,7 +449,7 @@ class Mesh():
                 vertex_metric_tensor = pickle.load(f)
                 print("Using vertex metrics from vertex_metric.pkl")
                 return vertex_metric_tensor
-        
+
         # If unavailable, generate from element-implied metric tensor
         simplex_metric_tensor, node_to_simplex_IDs = self.get_simplex_implied_metrics()
 
@@ -480,7 +489,7 @@ class Mesh():
                 Mk = simplex_metric_tensor[simplex_IDs]
                 temp = logm(np.einsum('jk,ikl,lm->ijm', Mv_invsqrt[local_ID], Mk, Mv_invsqrt[local_ID]))
                 metric_logsum[local_ID] = temp.mean(axis=0)
-            
+
             # Update best-guess value for the vertex metric
             Mv = np.einsum('ijk,ikl,ilm->ijm', Mv_sqrt, expm(metric_logsum), Mv_sqrt)
 
@@ -492,7 +501,7 @@ class Mesh():
             iteration += 1
             if iteration > 20:
                 raise RuntimeError("Failed to converge the vertex metric calculation.")
-        
+
         with open('vertex_metric.pkl', 'wb') as f:
             pickle.dump(vertex_metric_tensor, f)
 
@@ -553,7 +562,7 @@ class Mesh():
                 Mv = vertex_metric_tensor[node_IDs]
                 temp = np.einsum('jk,ikl,lm->ijm', Mk_invsqrt[local_ID], Mv, Mk_invsqrt[local_ID])
                 metric_logsum[local_ID] = np.mean(logm(temp), axis=0)
-            
+
             # Update best-guess value for the vertex metric
             Mk = np.einsum('ijk,ikl,ilm->ijm', Mk_sqrt, expm(metric_logsum), Mk_sqrt)
 
