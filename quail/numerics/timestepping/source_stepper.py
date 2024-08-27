@@ -263,7 +263,7 @@ class SourceSolvers():
 
 			res = self.res
 
-			Uq0, t0 = Uq.reshape(-1), solver.time
+			Uq0, t0 = Uq.flatten(), solver.time
 			dt = self.dt
 
 			subiterations = []
@@ -320,4 +320,4 @@ class SourceSolvers():
 			# Evaluate source term on quadrature points
 			Sq = solver.physics.eval_source_terms(Uq, x, t, Sq)
 
-			return Sq.reshape(-1) # ode function requires stacked array
+			return Sq.flatten() # ode function requires stacked array

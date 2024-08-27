@@ -139,8 +139,8 @@ def get_stiffness_matrix_ader(mesh, basis, basis_st, order, dt, elem_ID,
 
 	if physical_space:
 		basis_ref_grad = basis_st.basis_ref_grad
-		basis_st_grad = np.transpose(np.matmul(ijac_st.transpose(0, 2, 1),
-				basis_ref_grad.transpose(0, 2, 1)), (0, 2, 1))
+		basis_st_grad = np.transpose(np.matmul(ijac_st.transpose((0, 2, 1)),
+				basis_ref_grad.transpose((0, 2, 1))), (0, 2, 1))
 	else:
 		basis_st_grad = basis_st.basis_ref_grad
 
@@ -269,9 +269,9 @@ def get_elem_mass_matrix_ader(mesh, basis, order, elem_ID=-1,
 				get_djac=True)
 
 		if len(djac) == 1:
-			djac = np.full(nq, djac[0])
+			djac = np.full((nq,), djac[0])
 	else:
-		djac = np.full(nq, 1.).reshape(nq, 1)
+		djac = np.full((nq,), 1.).reshape((nq, 1))
 
 	# ------------------------------------------------------------------- #
 	# Example of ADER Flux Matrix calculation using for-loops

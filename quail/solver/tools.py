@@ -271,7 +271,7 @@ def calculate_artificial_viscosity(solver, mesh, shock_indicator=None, av_param=
 	h_bar = mesh.length_scale
 	# Calculate max wavespeed
 	U_bar = helpers.get_element_mean(Uq, quad_wts, djacs, vols)
-	a_max = physics.compute_variable("MaxWaveSpeed", U_bar).reshape(-1)
+	a_max = physics.compute_variable("MaxWaveSpeed", U_bar).flatten()
 
 	# Compute elementwise-AV
 	av0 = av_param*a_max*h_bar/np.maximum(1, p)*shock_elems
@@ -304,7 +304,7 @@ def calculate_artificial_viscosity(solver, mesh, shock_indicator=None, av_param=
 
 		# Return residual
 		av_res = dU-U
-		return av_res.reshape(-1)
+		return av_res.flatten()
 
 	sol = scipy.optimize.root(av_res, avc, args=(av_solver, res), method='krylov')
 	avc = sol.x.reshape(res.shape)
@@ -312,7 +312,7 @@ def calculate_artificial_viscosity(solver, mesh, shock_indicator=None, av_param=
 	# Evaluate AV at quadrature points
 	av = helpers.evaluate_state(avc, solver.elem_helpers.basis_val)
 	# Create filter bounds
-	av_max_elems = np.max(av, axis=1).reshape(-1)
+	av_max_elems = np.max(av, axis=1).flatten()
 	S_high = np.maximum(av_max_elems, a_max*h_bar/np.maximum(1, p))
 	S_low = 0.01*S_high
 	# Extend to quadrature points

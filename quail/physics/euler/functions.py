@@ -223,8 +223,8 @@ class MovingShock(FcnBase):
         Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
         for elem_ID in range(Uq.shape[0]):
-            ileft = (x[elem_ID] <= xshock).reshape(-1)
-            iright = (x[elem_ID] > xshock).reshape(-1)
+            ileft = (x[elem_ID] <= xshock).flatten()
+            iright = (x[elem_ID] > xshock).flatten()
             # Density
             Uq[elem_ID, iright, srho] = rho1
             Uq[elem_ID, ileft, srho] = rho2
@@ -621,8 +621,8 @@ class ShuOsherProblem(FcnBase):
         Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
         for elem_ID in range(Uq.shape[0]):
-            ileft = (x[elem_ID] < xshock).reshape(-1)
-            iright = (x[elem_ID] >= xshock).reshape(-1)
+            ileft = (x[elem_ID] < xshock).flatten()
+            iright = (x[elem_ID] >= xshock).flatten()
             rhoR = rho_sin[elem_ID, iright]
             # Density
             Uq[elem_ID, iright, srho] = rhoR
@@ -665,8 +665,8 @@ class GravityRiemann(FcnBase):
         pR = .2
 
         for elem_ID in range(Uq.shape[0]):
-            ileft = (x[elem_ID, :, 0] <= 1.).reshape(-1)
-            iright = (x[elem_ID, :, 0] > 1.).reshape(-1)
+            ileft = (x[elem_ID, :, 0] <= 1.).flatten()
+            iright = (x[elem_ID, :, 0] > 1.).flatten()
             # Density
             Uq[elem_ID, ileft, irho] = rhoL
             Uq[elem_ID, iright, irho] = rhoR
@@ -1659,14 +1659,14 @@ class HLLC(ConvNumFluxBase):
         # Left wave speed
         qL = np.ones(pL.shape)
         idx = np.where(p_pvrs > pL)[:2]
-        g = gL[*idx, :] if isinstance(gL, np.ndarray) else gL
+        g = gL[*idx, :] if isinstance(gL, type(np.ndarray)) else gL
         qL[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pL[*idx, :] - 1.0))
         SL = uL - aL*qL
 
         # Right wave speed
         qR = np.ones(pL.shape)
         idx = np.where(p_pvrs > pR)[:2]
-        g = gR[*idx, :] if isinstance(gR, np.ndarray) else gR
+        g = gR[*idx, :] if isinstance(gR, type(np.ndarray)) else gR
         qR[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pR[*idx, :] - 1.0))
         SR = uR + aR*qR
 

@@ -332,7 +332,7 @@ def element_jacobian(mesh, elem_ID, quad_pts, get_djac=False, get_jac=False,
 
 	# Get inverse and determinant
 	ijac = np.linalg.inv(jac)
-	djac = np.linalg.det(jac).reshape(-1, 1)
+	djac = np.linalg.det(jac).reshape((-1, 1))
 
 	# Check for nonpositive Jacobian
 	if get_djac and np.any(djac <= 0.):
@@ -448,8 +448,8 @@ def get_lagrange_basis_1D(xq, xnodes, basis_val=None, basis_ref_grad=None):
 				mask[i] = False
 				if nnodes > 2:
 					basis_ref_grad[:,j,:] += np.prod((xq - xnodes[mask])/(
-							xnodes[j] - xnodes[mask]), axis=1).reshape(-1,
-							1)/(xnodes[j] - xnodes[i])
+							xnodes[j] - xnodes[mask]), axis=1).reshape(
+								(-1, 1))/(xnodes[j] - xnodes[i])
 				else:
 					basis_ref_grad[:,j,:] += 1./(xnodes[j] - xnodes[i])
 
@@ -483,8 +483,8 @@ def get_lagrange_basis_2D(xq, xnodes, basis_val=None, basis_ref_grad=None):
 	# Get 1D basis values first
 	nnodes_1D = xnodes.shape[0]
 	lagrange_eq_seg = basis_defs.LagrangeSeg(nnodes_1D-1)
-	get_lagrange_basis_1D(xq[:, 0].reshape(-1, 1), xnodes, valx, gradx)
-	get_lagrange_basis_1D(xq[:, 1].reshape(-1, 1), xnodes, valy, grady)
+	get_lagrange_basis_1D(xq[:, 0].reshape((-1, 1)), xnodes, valx, gradx)
+	get_lagrange_basis_1D(xq[:, 1].reshape((-1, 1)), xnodes, valy, grady)
 
 	# Tensor products to get 2D basis values
 	if basis_val is not None:
@@ -527,9 +527,9 @@ def get_lagrange_basis_3D(xq, xnodes, basis_val=None, basis_ref_grad=None):
 	# Get 1D basis values first
 	nnodes_1D = xnodes.shape[0]
 	lagrange_eq_seg = basis_defs.LagrangeSeg(nnodes_1D-1)
-	get_lagrange_basis_1D(xq[:, 0].reshape(-1, 1), xnodes, valx, gradx)
-	get_lagrange_basis_1D(xq[:, 1].reshape(-1, 1), xnodes, valy, grady)
-	get_lagrange_basis_1D(xq[:, 2].reshape(-1, 1), xnodes, valz, gradz)
+	get_lagrange_basis_1D(xq[:, 0].reshape((-1, 1)), xnodes, valx, gradx)
+	get_lagrange_basis_1D(xq[:, 1].reshape((-1, 1)), xnodes, valy, grady)
+	get_lagrange_basis_1D(xq[:, 2].reshape((-1, 1)), xnodes, valz, gradz)
 
 	# Tensor products to get 3D basis values
 	if basis_val is not None:
@@ -690,7 +690,7 @@ def get_lagrange_basis_prism(xq, nq_seg, xnodes, xnodes_seg, basis_val_tri,
 		basis_val: evaluated basis [nq, nb]
 	'''
 	valz = np.zeros((xq.shape[0], xnodes_seg.shape[0]))
-	get_lagrange_basis_1D(xq[:, 2].reshape(-1, 1), xnodes_seg, valz)
+	get_lagrange_basis_1D(xq[:, 2].reshape((-1, 1)), xnodes_seg, valz)
 
 	# Tensor products to get 3D basis values
 	if basis_val is not None:
@@ -720,7 +720,7 @@ def get_lagrange_grad_prism(xq, nq_seg, xnodes, xnodes_seg,
 	'''
 	valz = np.zeros((xq.shape[0], xnodes_seg.shape[0]))
 	gradz = np.zeros((xq.shape[0], xnodes_seg.shape[0], 1))
-	get_lagrange_basis_1D(xq[:, 2].reshape(-1, 1), xnodes_seg, valz, gradz)
+	get_lagrange_basis_1D(xq[:, 2].reshape((-1, 1)), xnodes_seg, valz, gradz)
 
 	# Tensor products to get 3D basis gradients
 	for i in range(xq.shape[0]):
@@ -751,11 +751,11 @@ def get_legendre_basis_1D(xq, p, basis_val=None, basis_ref_grad=None):
 
 	if basis_val is not None:
 		basis_val[:, :] = 0.
-		xq.shape = -1
+		xq = xq.flatten()
 
 		for it in range(p+1):
 			basis_val[:, it] = leg_poly.basis(it)(xq)
-		xq.shape = -1, 1
+		xq = xq.reshape((-1, 1))
 
 	if basis_ref_grad is not None:
 		basis_ref_grad[:,:] = 0.
@@ -908,7 +908,7 @@ def get_kernel_function(p, x):
 	p += 2
 	# Initialize the legendre polynomial object
 	leg_poly = np.polynomial.legendre.Legendre
-	x.shape = -1
+	x = x.flatten()
 
 	# Construct the kernel's denominator
 	# (series of Lobatto fcns)
@@ -924,7 +924,7 @@ def get_kernel_function(p, x):
 
 	kernel = num / (1e-12 + den)
 
-	x.shape = -1, 1
+	x = x.reshape((-1, 1))
 
 	return kernel
 
@@ -1031,7 +1031,7 @@ def get_kernel_grad(p, dxdxi, x):
 	'''
 	p += 2
 	leg_poly = np.polynomial.legendre.Legendre
-	x.shape = -1
+	x = x.flatten()
 
 	# First two lobatto shape functions
 	l0 =  (1. - x)/2.

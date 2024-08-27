@@ -235,8 +235,8 @@ class ShockBurgers(FcnBase):
 		# Shock
 		us = uR + uL
 		xshock = xshock + us*t
-		ileft = (x <= xshock).reshape(-1)
-		iright = (x > xshock).reshape(-1)
+		ileft = (x <= xshock).flatten()
+		iright = (x > xshock).flatten()
 
 		Uq = np.zeros([x.shape[0], physics.NUM_STATE_VARS])
 
@@ -273,15 +273,15 @@ class SineBurgers(FcnBase):
 	def get_state(self, physics, x, t):
 
 		def F(u):
-			x1 = x.reshape(x.shape[0]*x.shape[1])
+			x1 = x.reshape((x.shape[0]*x.shape[1],))
 			F = u - np.sin(self.omega*(x1-u*t))
 			return F
 
 		u = np.sin(self.omega*x)
-		u1 = u.reshape(u.shape[0]*u.shape[1])
+		u1 = u.reshape((u.shape[0]*u.shape[1],))
 		sol = root(F, u1, tol=1e-12)
 
-		Uq = sol.x.reshape(u.shape[0], u.shape[1], 1)
+		Uq = sol.x.reshape((u.shape[0], u.shape[1], 1))
 
 		return Uq
 

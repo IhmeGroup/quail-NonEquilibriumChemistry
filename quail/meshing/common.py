@@ -130,7 +130,7 @@ def mesh_2D(num_elems_x=10, num_elems_y =10, xmin=-1., xmax=1.,
 	xcoords = np.linspace(xmin, xmax, num_nodes_x)
 	ycoords = np.linspace(ymin, ymax, num_nodes_y)
 	xgrid, ygrid = np.meshgrid(xcoords, ycoords)
-	xp = np.array([np.reshape(xgrid, -1), np.reshape(ygrid, -1)]).transpose()
+	xp = np.array([xgrid.flatten(), ygrid.flatten()]).transpose()
 	# Create mesh
 	mesh = mesh_defs.Mesh(ndims=2, num_nodes=xp.shape[0],
 			num_elems=num_elems_x*num_elems_y,
@@ -255,8 +255,8 @@ def split_quadrils_into_tris(mesh_old):
 			return ValueError
 
 		# Local quadrilateral node IDs
-		quad_node_IDs = np.arange(num_nodes_per_quad)
-		quad_node_IDs.shape = num_nodes_per_face, num_nodes_per_face
+		quad_node_IDs = np.arange(num_nodes_per_quad).reshape(
+			(num_nodes_per_face, num_nodes_per_face))
 
 		''' Local triangle node IDs '''
 		# faces 0 and 3 become faces 0 and 2 of tri1

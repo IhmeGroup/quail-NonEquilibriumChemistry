@@ -50,7 +50,7 @@ def get_quadrature_points_weights(order, quad_type):
 
 	# Weights
 	qwts = np.reshape(np.outer(qwts_tri, qwts_seg), (-1,),
-			'F').reshape(-1,1)
+			'F').reshape((-1, 1))
 
 	# Points
 	qpts = np.zeros([qwts.shape[0], 3])

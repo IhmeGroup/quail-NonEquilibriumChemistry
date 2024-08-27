@@ -319,9 +319,7 @@ def get_legendre_hessian_1D(xq, p, basis_ref_hessian=None):
 	# Use numpy legendre polynomials
 	leg_poly = np.polynomial.legendre.Legendre
 
-	xq.shape = -1
-
-	xq.shape = -1, 1
+	xq = xq.reshape((-1, 1))
 
 	if basis_ref_hessian is not None:
 		basis_ref_hessian[:,:] = 0.

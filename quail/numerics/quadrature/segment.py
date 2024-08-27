@@ -74,8 +74,8 @@ def get_quadrature_gauss_legendre(order):
 	# use built-in numpy Gauss Legendre functions
 	qpts, qwts = np.polynomial.legendre.leggauss(npts)
 
-	qpts.shape = -1,1
-	qwts.shape = -1,1
+	qpts = qpts.reshape((-1, 1))
+	qwts = qwts.reshape((-1, 1))
 
 	return qpts, qwts # [nq, 1] and [nq, 1]
 
@@ -109,8 +109,8 @@ def get_quadrature_gauss_lobatto(order, num_pts_colocated):
 			# use order argument in function call
 			qpts, qwts = gauss_lobatto(order)
 
-		qpts=qpts.reshape(qpts.shape[0],1)
-		qwts=qwts.reshape(qwts.shape[0],1)
+		qpts=qpts.reshape((qpts.shape[0],1))
+		qwts=qwts.reshape((qwts.shape[0],1))
 
 	return qpts, qwts # [nq, 1] and [nq, 1]
 

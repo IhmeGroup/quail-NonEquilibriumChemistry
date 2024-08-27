@@ -616,7 +616,7 @@ class SolverBase(ABC):
 		is_final_iteration = itime == self.stepper.num_time_steps - 1
 		if not self.progress_bar or is_final_iteration:
 			print("%d: Time = %g - Time step = %g - Residual norm = %g" % (
-					itime + 1, t, dt, np.linalg.norm(np.reshape(res, -1),
+					itime + 1, t, dt, np.linalg.norm(res.flatten(),
 					ord=1)))
 
 			# If requested, report min and max of state variables
@@ -635,7 +635,7 @@ class SolverBase(ABC):
 
 		# Save residual information
 		# if itime%10 == 0:
-		# 	self.res_hist = np.append(self.res_hist, np.linalg.norm(np.reshape(res, -1), ord=1))
+		# 	self.res_hist = np.append(self.res_hist, np.linalg.norm(res.flatten(), ord=1))
 
 
 	def solve(self):

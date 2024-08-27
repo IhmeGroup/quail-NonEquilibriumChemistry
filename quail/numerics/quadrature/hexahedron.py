@@ -49,19 +49,19 @@ def get_quadrature_points_weights(order, quad_type, num_pts_colocated=0):
 
 	# Weights
 	qwts_quad = np.reshape(np.outer(qwts_seg, qwts_seg), (-1,),
-			'F').reshape(-1,1)
+			'F').reshape((-1, 1))
 	qwts = np.reshape(np.outer(qwts_quad, qwts_seg), (-1,),
-			'F').reshape(-1,1)
+			'F').reshape((-1, 1))
 	# Points
 	qpts = np.zeros([qwts.shape[0],3])
 	qpts[:,0] = np.tile(qpts_seg, (qpts_seg.shape[0]* \
-			qpts_seg.shape[0],1)).reshape(-1)
+			qpts_seg.shape[0],1)).flatten()
 
 	qpts_hold = np.zeros([qpts_seg.shape[0]*qpts_seg.shape[0],1])
-	qpts_hold = np.tile(qpts_seg, (qpts_seg.shape[0],1)).reshape(-1)
+	qpts_hold = np.tile(qpts_seg, (qpts_seg.shape[0],1)).flatten()
 
-	qpts[:,1] = np.repeat(qpts_hold, qpts_seg.shape[0], axis=0).reshape(-1)
+	qpts[:,1] = np.repeat(qpts_hold, qpts_seg.shape[0], axis=0).flatten()
 	qpts[:,2] = np.repeat(qpts_seg, qpts_seg.shape[0]*qpts_seg.shape[0],
-			axis=0).reshape(-1)
+			axis=0).flatten()
 
 	return qpts, qwts

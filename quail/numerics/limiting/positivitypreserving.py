@@ -105,7 +105,7 @@ class PositivityPreserving(base.LimiterBase):
 		if not solver.basis.skip_interp:
 			basis_val_faces = int_face_helpers.faces_to_basisL.copy()
 			bshape = basis_val_faces.shape
-			basis_val_faces.shape = (bshape[0]*bshape[1], bshape[2])
+			basis_val_faces = basis_val_faces.reshape((bshape[0]*bshape[1], bshape[2]))
 			self.basis_val_elem_faces = np.vstack((elem_helpers.basis_val,
 					basis_val_faces))
 		else:
