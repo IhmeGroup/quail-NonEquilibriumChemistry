@@ -106,8 +106,8 @@ for key in [26,27]:
     0.0801580871597602, 0.0351194603317518])
 # reshape
 for Order in QuadLinePoints.keys():
-	QuadLinePoints[Order].shape = -1,1
-	QuadLineWeights[Order].shape = -1,1
+	QuadLinePoints[Order] = QuadLinePoints[Order].reshape((-1, 1))
+	QuadLineWeights[Order] = QuadLineWeights[Order].reshape((-1, 1))
 
 
 '''
@@ -145,9 +145,9 @@ for order in QuadLinePoints.keys():
 
     # if iq != nquad:
     # 	raise ValueError
-    quad_wts[:] = np.reshape(np.outer(wqline, wqline), (-1,), 'F').reshape(-1,1)
-    quad_pts[:,0] = np.tile(xqline, (nqline,1)).reshape(-1)
-    quad_pts[:,1] = np.repeat(xqline, nqline, axis=0).reshape(-1)
+    quad_wts[:] = np.reshape(np.outer(wqline, wqline), (-1,), 'F').reshape((-1, 1))
+    quad_pts[:,0] = np.tile(xqline, (nqline,1)).flatten()
+    quad_pts[:,1] = np.repeat(xqline, nqline, axis=0).flatten()
 
     # Store in dictionaries
     QuadQuadrilateralPoints[order] = quad_pts

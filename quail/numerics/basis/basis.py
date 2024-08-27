@@ -332,7 +332,7 @@ class SegShape(ShapeBase):
 			xnodes = np.zeros([nb, 1])
 		else:
 			xnodes = basis_tools.equidistant_nodes_1D_range(-1., 1., nb) \
-					.reshape(-1, 1)
+					.reshape((-1, 1))
 		return xnodes  # [nb, ndims]
 
 	def get_local_face_principal_node_nums(self, p, face_ID):
@@ -389,8 +389,8 @@ class QuadShape(ShapeBase):
 		if p > 0:
 			xseg = basis_tools.equidistant_nodes_1D_range(-1., 1., p+1)
 
-			xnodes[:, 0] = np.tile(xseg, (p+1, 1)).reshape(-1)
-			xnodes[:, 1] = np.repeat(xseg, p+1, axis=0).reshape(-1)
+			xnodes[:, 0] = np.tile(xseg, (p+1, 1)).flatten()
+			xnodes[:, 1] = np.repeat(xseg, p+1, axis=0).flatten()
 
 		return xnodes # [nb, ndims]
 
@@ -539,14 +539,14 @@ class HexShape(ShapeBase):
 		if p > 0:
 			xseg = basis_tools.equidistant_nodes_1D_range(-1., 1., p+1)
 
-			xnodes[:, 0] = np.tile(xseg, (p+1, p+1)).reshape(-1)
+			xnodes[:, 0] = np.tile(xseg, (p+1, p+1)).flatten()
 			xnodes_hold = np.zeros([xseg.shape[0]*xseg.shape[0],1])
-			xnodes_hold = np.tile(xseg, (xseg.shape[0],1)).reshape(-1)
+			xnodes_hold = np.tile(xseg, (xseg.shape[0],1)).flatten()
 
 			xnodes[:, 1] = np.repeat(xn_hold, xseg.shape[0],
-					axis=0).reshape(-1)
+					axis=0).flatten()
 			xnodes[:, 2] = np.repeat(xseg, xseg.shape[0]*xseg.shape[0],
-					axis=0).reshape(-1)
+					axis=0).flatten()
 
 		return xnodes # [nb, ndims]
 
@@ -574,28 +574,28 @@ class HexShape(ShapeBase):
 		elem_pts = np.zeros([face_pts.shape[0], ndims])
 		if face_ID == 0:
 			elem_pts[:, 0] = np.reshape((face_pts[:, 0] * x1[0] - \
-					face_pts[:, 0] * x0[0]) / 2., nq)
+					face_pts[:, 0] * x0[0]) / 2., (nq,))
 			elem_pts[:, 1] = -1.
 			elem_pts[:, 2] = np.reshape((face_pts[:, 1] * x3[2] - \
-					face_pts[:, 1] * x0[2]) / 2., nq)
+					face_pts[:, 1] * x0[2]) / 2., (nq,))
 		elif face_ID == 1:
 			elem_pts[:, 1] = np.reshape((face_pts[:, 0] * x1[1] - \
-					face_pts[:, 0] * x0[1]) / 2., nq)
+					face_pts[:, 0] * x0[1]) / 2., (nq,))
 			elem_pts[:, 0] = 1.
 			elem_pts[:, 2] = np.reshape((face_pts[:, 1] * x3[2] - \
-					face_pts[:, 1] * x0[2]) / 2., nq)
+					face_pts[:, 1] * x0[2]) / 2., (nq,))
 		elif face_ID == 2:
 			elem_pts[:, 0] = np.reshape((face_pts[:, 0] * x1[0] - \
-					face_pts[:, 0] * x0[0]) / 2., nq)
+					face_pts[:, 0] * x0[0]) / 2., (nq,))
 			elem_pts[:, 1] = 1.
 			elem_pts[:, 2] = np.reshape((face_pts[:, 1] * x3[2] - \
-					face_pts[:, 1] * x0[2]) / 2., nq)
+					face_pts[:, 1] * x0[2]) / 2., (nq,))
 		elif face_ID == 3:
 			elem_pts[:, 1] = np.reshape((face_pts[:, 0] * x1[1] - \
-					face_pts[:, 0] * x0[1]) / 2., nq)
+					face_pts[:, 0] * x0[1]) / 2., (nq,))
 			elem_pts[:, 0] = -1.
 			elem_pts[:, 2] = np.reshape((face_pts[:, 1] * x3[2] - \
-					face_pts[:, 1] * x0[2]) / 2., nq)
+					face_pts[:, 1] * x0[2]) / 2., (nq,))
 		# Bottom face (tau = -1 in ref time)
 		elif face_ID == 4:
 			x0 = [-1., -1., -1.]
@@ -604,9 +604,9 @@ class HexShape(ShapeBase):
 			x3 = [-1., 1., -1.]
 			elem_pts[:, 2] = -1.
 			elem_pts[:, 0] = np.reshape((face_pts[:, 0] * x1[0] - \
-					face_pts[:, 0] * x0[0]) / 2., nq)
+					face_pts[:, 0] * x0[0]) / 2., (nq,))
 			elem_pts[:, 1] = np.reshape((face_pts[:, 1] * x3[1] - \
-					face_pts[:, 1] * x0[1]) / 2., nq)
+					face_pts[:, 1] * x0[1]) / 2., (nq,))
 		# Top face (tau = 1 in ref time)
 		elif face_ID == 5:
 			x0 = [-1., -1., 1.]
@@ -615,9 +615,9 @@ class HexShape(ShapeBase):
 			x3 = [-1., 1., 1.]
 			elem_pts[:, 2] = 1.
 			elem_pts[:, 0] = np.reshape((face_pts[:, 0] * x1[0] - \
-					face_pts[: , 0] * x0[0]) / 2., nq)
+					face_pts[: , 0] * x0[0]) / 2., (nq,))
 			elem_pts[:, 1] = np.reshape((face_pts[:, 1] * x3[1] - \
-					face_pts[:, 1] * x0[1]) / 2., nq)
+					face_pts[:, 1] * x0[1]) / 2., (nq,))
 		else:
 			raise NotImplementedError
 
@@ -874,8 +874,8 @@ class BasisBase(ABC):
 		if ijac is None or ijac.shape != (nq, ndims, ndims):
 			raise ValueError("basis_ref_grad and ijac shapes not compatible")
 
-		basis_phys_grad = np.transpose(np.matmul(ijac.transpose(0, 2, 1),
-				basis_ref_grad.transpose(0, 2, 1)), (0, 2, 1))
+		basis_phys_grad = np.transpose(np.matmul(ijac.transpose((0, 2, 1)),
+				basis_ref_grad.transpose((0, 2, 1))), (0, 2, 1))
 
 		return basis_phys_grad # [nq, nb, ndims]
 
@@ -1122,8 +1122,8 @@ class LagrangeQuad(BasisBase, QuadShape):
 		if p > 0:
 			xseg = self.get_1d_nodes(-1., 1., p+1)
 
-			xnodes[:, 0] = np.tile(xseg, (p+1, 1)).reshape(-1)
-			xnodes[:, 1] = np.repeat(xseg, p+1, axis=0).reshape(-1)
+			xnodes[:, 0] = np.tile(xseg, (p+1, 1)).flatten()
+			xnodes[:, 1] = np.repeat(xseg, p+1, axis=0).flatten()
 
 		return xnodes # [nb, ndims]
 
@@ -1324,14 +1324,14 @@ class LagrangeHex(BasisBase, HexShape):
 		if p > 0:
 			xseg = self.get_1d_nodes(-1., 1., p+1)
 
-			xnodes[:, 0] = np.tile(xseg, (p+1, p+1)).reshape(-1)
+			xnodes[:, 0] = np.tile(xseg, (p+1, p+1)).flatten()
 			xnodes_hold = np.zeros([xseg.shape[0]*xseg.shape[0],1])
-			xnodes_hold = np.tile(xseg, (xseg.shape[0],1)).reshape(-1)
+			xnodes_hold = np.tile(xseg, (xseg.shape[0],1)).flatten()
 
 			xnodes[:, 1] = np.repeat(xnodes_hold, xseg.shape[0],
-					axis=0).reshape(-1)
+					axis=0).flatten()
 			xnodes[:, 2] = np.repeat(xseg, xseg.shape[0]*xseg.shape[0],
-					axis=0).reshape(-1)
+					axis=0).flatten()
 
 		return xnodes # [nb, ndims]
 

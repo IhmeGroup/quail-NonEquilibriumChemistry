@@ -349,7 +349,7 @@ class Chemistry1D(Chemistry):
         left_eigen[:, :, irhoY, irhoE] = b1*(-self.qo)
         left_eigen[:, :, irhoY, irhoY] = 1.
 
-        left_eigen = left_eigen.transpose(0,1,3,2)
+        left_eigen = left_eigen.transpose((0, 1, 3, 2))
 
         # Can uncomment line below to test l dot r = kronecker delta
         # test = np.einsum('elij,eljk->elik', left_eigen, right_eigen)

@@ -117,13 +117,13 @@ class BCWeakRiemann(BCBase):
 	This class computes the boundary flux via the numerical flux, which
 	depends on the interior and exterior states, i.e. Fnum(UqI, UqB, n).
 	'''
-	def get_boundary_flux(self, physics, UqI, normals, x, t, gUq=None):
+	def get_boundary_flux(self, physics, solver, UqI, normals, x, t, gUq=None):
 		UqB = self.get_boundary_state(physics, UqI, normals, x, t)
 		F = physics.get_conv_flux_numerical(UqI, UqB, normals)
 
 		# Compute diffusive boundary fluxes if needed
 		if physics.diff_flux_fcn:
-			Fv, FvB = physics.get_diff_boundary_flux_numerical(UqI, UqB, 
+			Fv, FvB = physics.get_diff_boundary_flux_numerical(solver, UqI, UqB, 
 					gUq, normals) # [nf, nq, ns]
 			F -= Fv
 			return F, FvB # [nf, nq, ns], [nf, nq, ns, ndims]
@@ -140,13 +140,13 @@ class BCWeakPrescribed(BCBase):
 	This class computes the boundary flux via the analytical flux based on
 	only the exterior state, i.e. F(UqB, n).
 	'''
-	def get_boundary_flux(self, physics, UqI, normals, x, t, gUq=None):
+	def get_boundary_flux(self, physics, solver, UqI, normals, x, t, gUq=None):
 		UqB = self.get_boundary_state(physics, UqI, normals, x, t)
 		F,_ = physics.get_conv_flux_projected(UqB, normals)
 		
 		# Compute diffusive boundary fluxes if needed
 		if physics.diff_flux_fcn:
-			Fv, FvB = physics.get_diff_boundary_flux_numerical(UqI, UqB, 
+			Fv, FvB = physics.get_diff_boundary_flux_numerical(solver, UqI, UqB, 
 					gUq, normals) # [nf, nq, ns]
 			F -= Fv
 			return F, FvB # [nf, nq, ns], [nf, nq, ns, ndims]

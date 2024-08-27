@@ -134,8 +134,7 @@ def gmsh_node_order_quadril(gorder):
 		nodes: maps quail node ordering to gmsh node ordering
 	'''
 	nodes = populate_nodes_quadril(gorder, 0, np.zeros([gorder+1, gorder+1],
-			dtype=int))
-	nodes.shape = -1
+			dtype=int)).flatten()
 
 	return nodes
 

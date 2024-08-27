@@ -118,6 +118,9 @@ class SolverBase(ABC):
 		self.itime = 0
 		self.itime_initial = self.itime
 
+		# Store residual history
+		# self.res_hist = np.array([], dtype=float) # For convergence plots
+
 		# Set solution basis and order
 		self.order = params["SolutionOrder"]
 		basis_type  = params["SolutionBasis"]
@@ -152,12 +155,12 @@ class SolverBase(ABC):
 			limiter = limiter_tools.set_limiter(limiter_type,
 					physics.PHYSICS_TYPE)
 			if limiter:
-				# Set shock indicator
-				limiter_tools.set_shock_indicator(limiter,
-						shock_indicator_type)
 				# Set TVB Parameter
 				limiter.tvb_param = tvb_param
 				self.limiters.append(limiter)
+
+		# Shock indicator
+		self.shock_indicator = limiter_tools.set_shock_indicator(shock_indicator_type)
 
 		# Console output
 		self.verbose = params["Verbose"]
@@ -446,6 +449,11 @@ class SolverBase(ABC):
 		else:
 			res[:] = stepper.balance_const
 
+		# Update AV
+		if self.params["ArtificialViscosity"]:
+			solver_tools.calculate_artificial_viscosity(self, mesh,
+				shock_indicator=self.shock_indicator, av_param=self.params["AVParameter"])
+
 		self.get_boundary_face_residuals(U, res)
 		self.get_element_residuals(U, res)
 		self.get_interior_face_residuals(U, res)
@@ -599,7 +607,7 @@ class SolverBase(ABC):
 		is_final_iteration = itime == self.stepper.num_time_steps - 1
 		if not self.progress_bar or is_final_iteration:
 			print("%d: Time = %g - Time step = %g - Residual norm = %g" % (
-					itime + 1, t, dt, np.linalg.norm(np.reshape(res, -1),
+					itime + 1, t, dt, np.linalg.norm(res.flatten(),
 					ord=1)))
 
 			# If requested, report min and max of state variables
@@ -615,6 +623,10 @@ class SolverBase(ABC):
 
 			print("------------------------------------------------------" + \
 					"-------------------------")
+
+		# Save residual information
+		# if itime%10 == 0:
+		# 	self.res_hist = np.append(self.res_hist, np.linalg.norm(res.flatten(), ord=1))
 
 
 	def solve(self):

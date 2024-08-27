@@ -178,8 +178,7 @@ def get_boundary_info(solver, mesh, physics, bname, var_name,
 
 	if dot_normal_with_vec:
 		# Convert to numpy array
-		vec = np.array(vec)
-		vec.shape = 1, 2
+		vec = np.array(vec).reshape((1, 2))
 
 	# Extract
 	elem_ID = bface_helpers.elem_IDs[boundary_num]

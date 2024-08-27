@@ -149,7 +149,7 @@ def triangulate(physics, x, var, triangles=None):
 
     # Remove duplicates
     if triangles is None:
-        x, idx = np.unique(x.reshape(-1, 2), axis=0, return_index=True)
+        x, idx = np.unique(x.reshape((-1, 2)), axis=0, return_index=True)
         var_tris = var_tris[idx]
 
     # Triangulation
@@ -776,12 +776,12 @@ def plot_solution(mesh, physics, solver, var_name, plot_numerical=True,
     elif plot_exact:
         var_plot = get_analytical_solution(physics, physics.exact_soln, x,
                                            time, var_name)
-        var_plot.shape = x.shape[0], x.shape[1], -1
+        var_plot = var_plot.reshape((x.shape[0], x.shape[1], -1))
         default_label = "Exact"
     elif plot_IC:
         var_plot = get_analytical_solution(physics, physics.IC, x, 0.,
                                            var_name)
-        var_plot.shape = x.shape[0], x.shape[1], -1
+        var_plot = var_plot.reshape((x.shape[0], x.shape[1], -1))
         default_label = "Initial"
     elif plot_average:
         var_plot, x = get_average_solution(physics, solver, x,

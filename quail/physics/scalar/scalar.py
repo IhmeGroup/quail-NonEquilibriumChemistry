@@ -29,6 +29,7 @@ from quail.physics.base import base
 import quail.physics.base.functions as base_fcns
 from quail.physics.base.functions import FcnType as base_fcn_type
 from quail.physics.base.functions import DiffNumFluxType as base_diff_num_flux_type
+from quail.physics.base.functions import SourceType as base_source_type
 
 import quail.physics.base.functions as base_fcns
 import quail.physics.scalar.functions as scalar_fcns
@@ -80,7 +81,7 @@ class ConstAdvScalar(base.PhysicsBase):
 		Scalar = "u"
 
 	class AdditionalVariables(Enum):
-	    MaxWaveSpeed = "\\lambda"
+		MaxWaveSpeed = "\\lambda"
 
 	def get_conv_flux_interior(self, Uq):
 		c = self.c
@@ -228,6 +229,11 @@ class ConstAdvDiffScalar(base.PhysicsBase):
 	def set_maps(self):
 		super().set_maps()
 
+		self.source_map.update({
+			base_source_type.ArtificialViscosity :
+				base_fcns.ArtificialViscosity,
+		})
+
 		self.diff_num_flux_map.update({
 			base_diff_num_flux_type.SIP :
 				base_fcns.SIP,
@@ -237,7 +243,7 @@ class ConstAdvDiffScalar(base.PhysicsBase):
 		Scalar = "u"
 
 	class AdditionalVariables(Enum):
-	    MaxWaveSpeed = "\\lambda"
+		MaxWaveSpeed = "\\lambda"
 
 	def get_conv_flux_interior(self, Uq):
 		c = self.c
@@ -407,7 +413,7 @@ class Burgers1D(base.PhysicsBase):
 		Scalar = "u"
 
 	class AdditionalVariables(Enum):
-	    MaxWaveSpeed = "\\lambda"
+		MaxWaveSpeed = "\\lambda"
 
 	def get_conv_flux_interior(self, Uq):
 

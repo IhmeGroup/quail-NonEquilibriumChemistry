@@ -108,8 +108,8 @@ class SimpleDetonation1(FcnBase):
 		Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
 
 		for elem_ID in range(Uq.shape[0]):
-			ileft = (x[elem_ID] <= xshock).reshape(-1)
-			iright = (x[elem_ID] > xshock).reshape(-1)
+			ileft = (x[elem_ID] <= xshock).flatten()
+			iright = (x[elem_ID] > xshock).flatten()
 			# Density
 			Uq[elem_ID, iright, srho] = rho_u
 			Uq[elem_ID, ileft, srho] = rho_b
@@ -260,10 +260,10 @@ class OverdrivenDetonation(FcnBase):
 		for elem_ID in range(Uq.shape[0]):
 
 			# Determine left, right, and middle (reacting layer) locations
-			ileft = (x[elem_ID] <= xshock - 3.0).reshape(-1)
-			iright = (x[elem_ID] > xshock).reshape(-1)
+			ileft = (x[elem_ID] <= xshock - 3.0).flatten()
+			iright = (x[elem_ID] > xshock).flatten()
 			imiddle = np.logical_and(x[elem_ID] <= xshock,
-					x[elem_ID] > xshock- 3.0).reshape(-1)
+					x[elem_ID] > xshock- 3.0).flatten()
 			if np.any(imiddle) == True:
 
 				for j in range(Uq.shape[1]):

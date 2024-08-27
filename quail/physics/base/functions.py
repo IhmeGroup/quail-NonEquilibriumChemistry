@@ -2,14 +2,14 @@
 #
 #       quail: A lightweight discontinuous Galerkin code for
 #              teaching and prototyping
-#		<https://github.com/IhmeGroup/quail>
+#        <https://github.com/IhmeGroup/quail>
 #
-#		Copyright (C) 2020-2021
+#        Copyright (C) 2020-2021
 #
 #       This program is distributed under the terms of the GNU
-#		General Public License v3.0. You should have received a copy
+#        General Public License v3.0. You should have received a copy
 #       of the GNU General Public License along with this program.
-#		If not, see <https://www.gnu.org/licenses/>.
+#        If not, see <https://www.gnu.org/licenses/>.
 #
 # ------------------------------------------------------------------------ #
 
@@ -25,8 +25,11 @@ from enum import Enum, auto
 
 from quail.backend import np
 from quail.physics.base.data import (FcnBase, BCWeakRiemann, BCWeakPrescribed,
-                                     ConvNumFluxBase, DiffNumFluxBase)
+                                     ConvNumFluxBase, DiffNumFluxBase,
+                                     SourceBase)
 
+from quail.numerics.helpers import helpers
+import quail.solver.tools as solver_tools
 
 class FcnType(Enum):
     '''
@@ -51,8 +54,7 @@ class SourceType(Enum):
     Enum class that stores the types of source terms. These
     source terms are generalizable to different kinds of physics.
     '''
-    pass
-
+    ArtificialViscosity = auto()
 
 class ConvNumFluxType(Enum):
     '''
@@ -180,6 +182,45 @@ class Extrapolate(BCWeakPrescribed):
 
     def get_boundary_state(self, physics, UqI, normals, x, t):
         return UqI.copy()
+
+
+'''
+---------------------
+Source term functions
+---------------------
+These classes inherit from the SourceBase class. See SourceBase for detailed
+comments of attributes and methods. Information specific to the
+corresponding child classes can be found below. These classes should
+correspond to the SourceType enum members above.
+'''
+
+class ArtificialViscosity(SourceBase):
+    '''
+    Artificial visocsity source term for AV PDE-smoothing
+    S = eta_0 [ne, nq, 1]
+
+    Attributes:
+    -----------
+    eta_0: ndarray
+        elementwise-constant AV field
+    '''
+    def __init__(self, eta_0, **kwargs):
+        super().__init__(kwargs)
+        '''
+        This method initializes the attributes.
+
+        Inputs:
+        -------
+            eta_0: source term parameter
+
+        Outputs:
+        --------
+            self: attributes initialized
+        '''
+        self.eta_0 = eta_0
+
+    def get_source(self, physics, avq, x, t):
+        return self.eta_0
 
 
 '''
@@ -313,7 +354,7 @@ class SIP(DiffNumFluxBase):
 
         return etas[i] * mesh.gbasis.NFACES
 
-    def compute_flux(self, physics, UqL, UqR, gUqL, gUqR, normals):
+    def compute_flux(self, physics, solver, UqL, UqR, gUqL, gUqR, normals):
         '''
         See definition of compute_flux in physics/data.py. Additional
         comments are below:
@@ -345,6 +386,18 @@ class SIP(DiffNumFluxBase):
         Fv_dir = 0.5 * physics.get_diff_flux_interior(UqL, gUqL)
         Fv_dir_jump = physics.get_diff_flux_interior(UqL, dUxn)
 
+        # AV contribution
+        if solver.params["ArtificialViscosity"]:
+            mesh = solver.mesh
+            int_face_helpers = solver.int_face_helpers
+            elemL_IDs = int_face_helpers.elemL_IDs
+            faces_to_basisL = int_face_helpers.faces_to_basisL
+            faceL_IDs = int_face_helpers.faceL_IDs
+            avcL = solver.av_solver.state_coeffs[elemL_IDs]
+            avL = helpers.evaluate_state(avcL, faces_to_basisL[faceL_IDs])
+            Fv_dir += 0.5 * solver_tools.calculate_artificial_viscosity_flux(mesh, physics, UqL, gUqL, avL, IDs=elemL_IDs)
+            Fv_dir_jump += solver_tools.calculate_artificial_viscosity_flux(mesh, physics, UqL, dUxn, avL, IDs=elemL_IDs)
+
         C4 = 0.5 * eta / hL
         C5 = 0.5 * n_mag
 
@@ -354,6 +407,18 @@ class SIP(DiffNumFluxBase):
         # Right State
         Fv_dir += 0.5 * physics.get_diff_flux_interior(UqR, gUqR)
         Fv_dir_jump = physics.get_diff_flux_interior(UqR, dUxn)
+
+        # AV contribution
+        if solver.params["ArtificialViscosity"]:
+            mesh = solver.mesh
+            int_face_helpers = solver.int_face_helpers
+            elemR_IDs = int_face_helpers.elemR_IDs
+            faces_to_basisR = int_face_helpers.faces_to_basisR
+            faceR_IDs = int_face_helpers.faceR_IDs
+            avcR = solver.av_solver.state_coeffs[elemR_IDs]
+            avR = helpers.evaluate_state(avcR, faces_to_basisR[faceR_IDs])
+            Fv_dir += 0.5 * solver_tools.calculate_artificial_viscosity_flux(mesh, physics, UqR, gUqR, avR, IDs=elemR_IDs)
+            Fv_dir_jump += solver_tools.calculate_artificial_viscosity_flux(mesh, physics, UqR, dUxn, avR, IDs=elemR_IDs)
 
         C4 = 0.5 * eta / hR
         C5 = 0.5 * n_mag
@@ -366,7 +431,7 @@ class SIP(DiffNumFluxBase):
         return Fv, FvL, FvR # [nf, nq, ns], [nf, nq, ns, ndims]
             # [nf, nq, ns, ndims]
 
-    def compute_boundary_flux(self, physics, UqI, UqB, gUq, normals):
+    def compute_boundary_flux(self, physics, solver, UqI, UqB, gUq, normals, av=None):
         '''
         Flux computation for the diffusion terms on the boundary faces.
         See SIP's class definition of compute_flux for nomenclature
@@ -408,6 +473,12 @@ class SIP(DiffNumFluxBase):
 
         # Right State
         Fv_dir_jump = physics.get_diff_flux_interior(UqB, dUxn)
+
+        # AV contribution
+        if solver.params["ArtificialViscosity"]:
+            mesh = solver.mesh
+            Fv_dir += solver_tools.calculate_artificial_viscosity_flux(mesh, physics, UqB, gUq, solver.av, IDs=solver.av_IDs)
+            Fv_dir_jump += solver_tools.calculate_artificial_viscosity_flux(mesh, physics, UqB, dUxn, solver.av, IDs=solver.av_IDs)
 
         C4 = - eta / h
         C5 = n_mag

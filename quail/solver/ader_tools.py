@@ -301,7 +301,7 @@ def spacetime_odeguess(solver, W, U_pred, dt=None):
 			mesh, solver.time, dt,
 			ader_helpers.x_elems[0, 0:2, :], elem_helpers_st.basis_time)
 
-	W0, t0 = Wq.reshape(-1), solver.time
+	W0, t0 = Wq.flatten(), solver.time
 
 	def func(t, y, x, Sq_exp):
 		'''
@@ -326,7 +326,7 @@ def spacetime_odeguess(solver, W, U_pred, dt=None):
 		# It will need to be added for the guess to be correct for more
 		# complicated systems. Current test cases that require this are
 		# only ODE cases.
-		return Sq.reshape(-1)
+		return Sq.flatten()
 
 
 	# Evaluate source terms to be taken explicitly
@@ -737,13 +737,13 @@ def predictor_elem_implicit(solver, dt, W, U_pred):
 
 	for i in range(niter):
 
-		B = -1.0*dt*Sjac.transpose(0,2,1)
+		B = -1.0*dt*Sjac.transpose((0, 2, 1))
 
 		Q = np.einsum('jk, ikm -> ijm', FTR, W) - np.einsum(
 				'ijkl, ikml -> ijm', SMS_elems, flux_coeffs)
 
 		C = source_coeffs - dt*np.matmul(U_pred[:],
-				Sjac[:].transpose(0, 2, 1)) + \
+				Sjac[:].transpose((0, 2, 1))) + \
 				np.einsum('jk, ikl -> ijl', iMM, Q)
 
 		# Build identity matrices for kronecker procucts
@@ -755,7 +755,7 @@ def predictor_elem_implicit(solver, dt, W, U_pred):
 			# Conduct kronecker products to transfrom Ax+xB=C system to Ax=b
 			kronecker = np.kron(I1, A) + np.kron(B[ie, :, :].transpose(), I2)
 			U_pred_hold = np.linalg.solve(kronecker,
-					C[ie, :, :].transpose().reshape(-1))
+					C[ie, :, :].transpose().flatten())
 			U_pred_new[ie, :, :] = U_pred_hold.reshape(U_pred.shape[2],
 					U_pred.shape[1]).transpose()
 
@@ -876,11 +876,11 @@ def predictor_elem_stiffimplicit(solver, dt, W, U_pred):
 				np.einsum('ijkl, ikml -> ijm', SMS_elems, flux_coeffs) +
 				np.einsum('jk, ikm -> ijm', FTR, W)) - q
 
-		q.reshape(-1) # reshape for the nonlinear solver
-		return zero.reshape(-1) # reshape for the nonlinear solver
+		q.flatten() # reshape for the nonlinear solver
+		return zero.flatten() # reshape for the nonlinear solver
 
 	# Iterate using root function
-	sol = root(rhs_weakform, U_pred.reshape(-1), tol=1e-15, jac=None,
+	sol = root(rhs_weakform, U_pred.flatten(), tol=1e-15, jac=None,
 			method='hybr', options={'maxfev':50000, 'xtol':1e-15})
 	U_pred = np.copy(sol.x.reshape([U_pred.shape[0], U_pred.shape[1], ns]))
 
@@ -888,7 +888,7 @@ def predictor_elem_stiffimplicit(solver, dt, W, U_pred):
 	# Note: Other nonlinear solvers could be more efficient. Further work is
 	# needed to determine the most efficient method. Commented code below
 	# is another approach.
-	# sol = newton_krylov(fun, U_pred.reshape(-1), iter=None,
+	# sol = newton_krylov(fun, U_pred.flatten(), iter=None,
 		# rdiff=None, method='lgmres', maxiter=100)
 	# U_pred = np.copy(sol.reshape([U_pred.shape[0], U_pred.shape[1], ns]))
 

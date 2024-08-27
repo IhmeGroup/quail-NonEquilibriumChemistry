@@ -196,17 +196,17 @@ def read_inputs(deck):
         deck: input deck (modified)
     '''
     # Defaults
-    computation_params = default_deck.Computation
-    restart_params = default_deck.Restart
-    stepper_params = default_deck.TimeStepping
-    numerics_params = default_deck.Numerics
-    mesh_params = default_deck.Mesh
-    physics_params = default_deck.Physics
-    IC_params = default_deck.InitialCondition
-    exact_params = default_deck.ExactSolution
-    BC_params = default_deck.BoundaryConditions
-    source_params = default_deck.SourceTerms
-    output_params = default_deck.Output
+    computation_params = default_deck.Computation.copy()
+    restart_params = default_deck.Restart.copy()
+    stepper_params = default_deck.TimeStepping.copy()
+    numerics_params = default_deck.Numerics.copy()
+    mesh_params = default_deck.Mesh.copy()
+    physics_params = default_deck.Physics.copy()
+    IC_params = default_deck.InitialCondition.copy()
+    exact_params = default_deck.ExactSolution.copy()
+    BC_params = default_deck.BoundaryConditions.copy()
+    source_params = default_deck.SourceTerms.copy()
+    output_params = default_deck.Output.copy()
 
     # Overwrite
     try:
@@ -400,6 +400,10 @@ def driver(deck):
     if pb != [None]*4:
         mesh_tools.make_periodic_translational(mesh, x1=pb[0], x2=pb[1],
                 y1=pb[2], y2=pb[3])
+
+    if numerics_params["ArtificialViscosity"]:
+        # Need to compute mesh metrics for AV
+        mesh.create_metric_tensor()
 
 
     '''

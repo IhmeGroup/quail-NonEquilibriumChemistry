@@ -799,6 +799,12 @@ class DG(base.SolverBase):
 		if params["RestartFile"] is None:
 			self.init_state_from_fcn()
 
+		# Initialize artificial Viscosity
+		if self.params["ArtificialViscosity"]:
+			self.av_solver = solver_tools.initialize_artificial_viscosity(self)
+			self.av = None
+			self.av_IDs = np.arange(mesh.num_elems)
+
 	def precompute_matrix_helpers(self):
 		mesh = self.mesh
 		physics = self.physics
@@ -816,6 +822,7 @@ class DG(base.SolverBase):
 
 	def get_element_residual(self, Uc, res_elem):
 		# Unpack
+		mesh = self.mesh
 		physics = self.physics
 		ns = physics.NUM_STATE_VARS
 		ndims = physics.NDIMS
@@ -850,6 +857,12 @@ class DG(base.SolverBase):
 				Fq -= physics.get_diff_flux_interior(Uq, gUq)
 					# [ne, nq, ns, ndims]
 
+			if self.params["ArtificialViscosity"]:
+				# Evaluate AV Flux
+				av = helpers.evaluate_state(self.av_solver.state_coeffs, basis_val)
+				Fq -= solver_tools.calculate_artificial_viscosity_flux(mesh,
+						physics, Uq, gUq, av)
+
 			res_elem += solver_tools.calculate_volume_flux_integral(
 					self, elem_helpers, Fq) # [ne, nb, ns]
 
@@ -865,10 +878,10 @@ class DG(base.SolverBase):
 					elem_helpers, Sq) # [ne, nb, ns]
 
 		# Add artificial viscosity term
-		if self.params["ArtificialViscosity"]:
-			av_param = self.params["AVParameter"]
-			res_elem -= solver_tools.calculate_artificial_viscosity_integral(
-					physics, elem_helpers, Uc, av_param, self.order)
+		# if self.params["ArtificialViscosity"]:
+		# 	av_param = self.params["AVParameter"]
+		# 	res_elem -= solver_tools.calculate_artificial_viscosity_integral(
+		# 			physics, elem_helpers, Uc, av_param, self.order)
 
 		return res_elem # [ne, nb, ns]
 
@@ -931,7 +944,7 @@ class DG(base.SolverBase):
 					# [nf, nq, ns]
 
 			# Compute diffusion flux
-			Fq_diff, FL, FR = physics.get_diff_flux_numerical(UqL, UqR,
+			Fq_diff, FL, FR = physics.get_diff_flux_numerical(self, UqL, UqR,
 					gUqL, gUqR, normals_int_faces) # [nf, nq, ns],
 					# [nf, nq, ns, ndims], [nf, nq, ns, ndims]
 			Fq -= Fq_diff
@@ -997,8 +1010,16 @@ class DG(base.SolverBase):
 			physics.diff_flux_fcn.compute_bface_helpers(self, bgroup_num)
 
 		if fluxes:
+			# Set AV boundary helpers
+			if self.params["ArtificialViscosity"]:
+				elem_IDs = bface_helpers.elem_IDs
+				bgroup_elem_IDs = elem_IDs[bgroup.number]
+				avc = self.av_solver.state_coeffs[bgroup_elem_IDs]
+				self.av_IDs = bgroup_elem_IDs
+				self.av = helpers.evaluate_state(avc, basis_val)
+
 			# Compute boundary flux
-			Fq, FqB = BC.get_boundary_flux(physics, UqI, normals, x, self.time, gUq=gUq)
+			Fq, FqB = BC.get_boundary_flux(physics, self, UqI, normals, x, self.time, gUq=gUq)
 			FqB_phys = self.ref_to_phys_grad(ijac, FqB)
 
 			# Compute contribution to adjacent element residual

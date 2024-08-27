@@ -679,8 +679,8 @@ def get_quadrature_dunavant(order):
 				0.001899964427651, 0.001899964427651,
 				0.001899964427651, 0.001899964427651,
 				0.001899964427651])
-	qpts.shape = -1,2
-	qwts.shape = -1,1
+	qpts = qpts.reshape((-1, 2))
+	qwts = qwts.reshape((-1, 1))
 
 	return qpts, qwts
 

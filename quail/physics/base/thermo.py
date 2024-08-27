@@ -64,6 +64,7 @@ class ThermoBase(ABC):
 
     def __init__(self, **kwargs):
         self.init_params = kwargs
+        self.energy_list = ['E']
         pass
 
     def reinitialize(self):
@@ -543,6 +544,11 @@ class MutationppThermo(ThermoBase):
         self.options.setThermodynamicDatabase(ThermoDB)
         self.options.setStateModel(StateModel)
         self.gas = mpp.Mixture(self.options)
+
+        # Set energies based on the state model name
+        if StateModel == "ChemNonEqTTv":
+            # Add vibrational energy
+            self.energy_list += ['E_v']
 
         self.species_names = []
         self.W = self.gas.speciesMw()
