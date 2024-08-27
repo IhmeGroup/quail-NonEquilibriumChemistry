@@ -74,7 +74,7 @@ def get_quadrature_gauss_legendre(order):
 	npts = (order + 1)//2
 
 	# use built-in numpy Gauss Legendre functions
-	qpts, qwts = polynomial.legendre.leggauss(npts)
+	qpts, qwts = polynomial.legendre.leggauss(int(npts))
 
 	qpts.shape = -1,1
 	qwts.shape = -1,1

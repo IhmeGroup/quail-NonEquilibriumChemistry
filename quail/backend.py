@@ -30,6 +30,7 @@ try:
     get_backend = autoray.get_backend
     set_backend('numpy')
     np = autoray.numpy
+    autojit = autoray.autojit
 
     np.__dict__['add'] = autoray.autoray.NumpyMimic("add")
 
@@ -47,12 +48,40 @@ try:
 
     autoray.register_function('jax', 'add.at', jax_add_at)
 
+    try:
+        # Add cunumeric backend
+        import cunumeric
+
+        autoray.register_backend(cls=cunumeric.ndarray, name="cunumeric")
+
+        def cunumeric_add_at(a, indices, b):
+            # Doesn't work when b.ndim > 1
+            # a[:] += cunumeric.bincount(indices, weights=b,
+            #                            minlength=a.shape[0])
+
+            # Fall back to numpy
+            numpy.add.at(a, indices, b)
+            return a
+
+        autoray.register_function('cunumeric', 'add.at', cunumeric_add_at)
+    except:
+        pass
+
+
 except ImportError:
+    np = numpy
+
+    # Create mock decorator for just-in-time compilation which does nothing
+    def autojit(func, *args, **kwargs):
+
+        def do_nothing(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        return do_nothing
+
     # Create mock functions for changing the backend
     def set_backend(like: str, get_globally: str | bool = 'auto') -> None:
         return
 
     def get_backend(get_globally: str | bool = 'auto') -> str:
         return 'numpy'
-
-    np = numpy
