@@ -1661,14 +1661,14 @@ class HLLC(ConvNumFluxBase):
         # Left wave speed
         qL = np.ones(pL.shape)
         idx = np.where(p_pvrs > pL)[:2]
-        g = gL[*idx, :] if isinstance(gL, type(np.ndarray)) else gL
+        g = gL[*idx, :] if np.shape(gL) != () else gL  # Account for scalar values
         qL[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pL[*idx, :] - 1.0))
         SL = uL - aL*qL
 
         # Right wave speed
         qR = np.ones(pL.shape)
         idx = np.where(p_pvrs > pR)[:2]
-        g = gR[*idx, :] if isinstance(gR, type(np.ndarray)) else gR
+        g = gR[*idx, :] if np.shape(gR) != () else gR  # Account for scalar values
         qR[*idx, :] = np.sqrt(1.0 + (g+1)/(2.0*g) * (p_pvrs[*idx, :]/pR[*idx, :] - 1.0))
         SR = uR + aR*qR
 
