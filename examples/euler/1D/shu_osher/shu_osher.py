@@ -7,8 +7,8 @@ NumTimeSteps = 200
 TimeStepping = {
     "InitialTime" : 0.,
     "FinalTime" : FinalTime,
-    "CFL" : 0.2,
-    "TimeStepper" : "SSPRK3",
+    "CFL" : 0.1,
+    "TimeStepper" : "RK4",
 }
 
 # Output = {
@@ -35,7 +35,7 @@ Output = {
 Mesh = {
     "File" : None,
     "ElementShape" : "Segment",
-    "NumElemsX" : 200,
+    "NumElemsX" : 100,
     "xmin" : -5.,
     "xmax" : 5.,
 }

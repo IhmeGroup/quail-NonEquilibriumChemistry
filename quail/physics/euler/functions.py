@@ -45,6 +45,7 @@ class FcnType(Enum):
     TaylorGreenVortex = auto()
     ShuOsherProblem = auto()
     GravityRiemann = auto()
+    StrongShock = auto()
 
 class BCType(Enum):
     '''
@@ -624,6 +625,47 @@ class ShuOsherProblem(FcnBase):
             ileft = (x[elem_ID] < xshock).reshape(-1)
             iright = (x[elem_ID] >= xshock).reshape(-1)
             rhoR = rho_sin[elem_ID, iright]
+            # Density
+            Uq[elem_ID, iright, srho] = rhoR
+            Uq[elem_ID, ileft, srho] = rhoL
+            # Momentum
+            Uq[elem_ID, iright, srhou] = rhoR*uR
+            Uq[elem_ID, ileft, srhou] = rhoL*uL
+            # Energy
+            Uq[elem_ID, iright, srhoE] = pR/(gamma - 1.) + 0.5*rhoR*uR*uR
+            Uq[elem_ID, ileft, srhoE] = pL/(gamma - 1.) + 0.5*rhoL*uL*uL
+
+        return Uq # [ne, nq, ns]
+
+class StrongShock(FcnBase):
+    def __init__(self, xshock):
+        self.xshock = xshock
+
+    def get_state(self, physics, x, t):
+        # Unpack
+        xshock = self.xshock
+
+        srho, srhou, srhoE = physics.get_state_slices()
+
+        gamma = physics.thermo.gamma
+
+        ''' Pre-shock state '''
+        rhoL = 1.0
+        pL = 1000.0
+        uL = 0.0
+
+        ''' Post-shock state '''
+        rhoR = 1.0
+        uR = 0.0
+        pR = 0.01
+
+        ''' Fill state '''
+        Uq = np.zeros([x.shape[0], x.shape[1], physics.NUM_STATE_VARS])
+
+        for elem_ID in range(Uq.shape[0]):
+            ileft = (x[elem_ID] < xshock).reshape(-1)
+            iright = (x[elem_ID] >= xshock).reshape(-1)
+            
             # Density
             Uq[elem_ID, iright, srho] = rhoR
             Uq[elem_ID, ileft, srho] = rhoL

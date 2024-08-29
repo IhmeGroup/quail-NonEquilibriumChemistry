@@ -158,6 +158,7 @@ class RungeKuttaBase(StepperBase):
 
     def take_time_step(self, solver):
         mesh = solver.mesh
+        physics = solver.physics
         U = solver.state_coeffs
         U0 = U.copy()
 
@@ -174,10 +175,13 @@ class RungeKuttaBase(StepperBase):
 
             # U = a*U0 + b*U + c*dU
 
+            press1 = physics.compute_variable("Pressure",U)
+            rho_n = physics.compute_variable("Density",U)
+
             # In-place update:
             U *= b
             U += a*U0 + c*dU
-            solver.apply_limiter(U)
+            solver.apply_limiter(U,rho_n,press1)
 
         return res # [num_elems, nb, ns]
 
@@ -247,37 +251,46 @@ class RK4(StepperBase):
     STEPPER_TYPE = StepperType.RK4
 
     def take_time_step(self, solver):
+        physics = solver.physics
         mesh = solver.mesh
         U = solver.state_coeffs
 
         res = self.res
 
         # First stage
+        press1 = physics.compute_variable("Pressure",U)
+        rho_n = physics.compute_variable("Density",U)
         res = solver.get_residual(U, res)
         dU1 = solver_tools.mult_inv_mass_matrix(mesh, solver, self.dt, res)
         Utemp = U + 0.5*dU1
-        solver.apply_limiter(Utemp)
+        solver.apply_limiter(Utemp,rho_n,press1)
 
         # Second stage
         solver.time += self.dt/2.
+        press1 = physics.compute_variable("Pressure",Utemp)
+        rho_n = physics.compute_variable("Density",Utemp)
         res = solver.get_residual(Utemp, res)
         dU2 = solver_tools.mult_inv_mass_matrix(mesh, solver, self.dt, res)
         Utemp = U + 0.5*dU2
-        solver.apply_limiter(Utemp)
+        solver.apply_limiter(Utemp,rho_n,press1)
 
         # Third stage
+        press1 = physics.compute_variable("Pressure",Utemp)
+        rho_n = physics.compute_variable("Density",Utemp)
         res = solver.get_residual(Utemp, res)
         dU3 = solver_tools.mult_inv_mass_matrix(mesh, solver, self.dt, res)
         Utemp = U + dU3
-        solver.apply_limiter(Utemp)
+        solver.apply_limiter(Utemp,rho_n,press1)
 
         # Fourth stage
         solver.time += self.dt/2.
+        press1 = physics.compute_variable("Pressure",Utemp)
+        rho_n = physics.compute_variable("Density",Utemp)
         res = solver.get_residual(Utemp, res)
         dU4 = solver_tools.mult_inv_mass_matrix(mesh, solver, self.dt, res)
         dU = 1./6.*(dU1 + 2.*dU2 + 2.*dU3 + dU4)
         U += dU
-        solver.apply_limiter(U)
+        solver.apply_limiter(U,rho_n,press1)
 
         return res # [num_elems, nb, ns]
 

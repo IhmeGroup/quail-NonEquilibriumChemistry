@@ -93,6 +93,7 @@ class LimiterType(Enum):
 	'''
 	PositivityPreserving = auto()
 	PositivityPreservingEnergy = auto()
+	EntropyPreserving = auto()
 	WENO = auto()
 
 class ShockIndicatorType(Enum):

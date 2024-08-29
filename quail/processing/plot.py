@@ -16,6 +16,8 @@ import quail.meshing.tools as mesh_tools
 
 from quail.numerics.helpers import helpers
 
+from scipy.interpolate import LinearNDInterpolator
+
 
 def prepare_plot(reset=False, defaults=False, close_all=True, fontsize=12.,
         font={'family':'serif', 'serif': ['DejaVu Sans']}, linewidth=1.5,
@@ -351,12 +353,32 @@ def interpolate_2D_soln_to_points(physics, x, var, xpoints):
         var: values of variable evaluated at x (duplicates removed and
             reshaped)
     '''
-    if physics.NDIMS != 2:
-        raise ValueError
-    tris, utri = triangulate(physics, x, var)
-    interpolator = tri.LinearTriInterpolator(tris, utri)
+    # if physics.NDIMS != 2:
+    #     raise ValueError
+    # tris, utri = triangulate(physics, x, var)
+    # interpolator = tri.LinearTriInterpolator(tris, utri)
 
-    var_points = interpolator(xpoints[:,0], xpoints[:,1])
+    # var_points = interpolator(xpoints[:,0], xpoints[:,1])
+
+    # return var_points
+
+    if physics.NDIMS != 2:
+            raise ValueError
+
+    # Remove duplicates
+    x.shape = -1,2
+    num_pts = x.shape[0]
+    x, idx = np.unique(x, axis=0, return_index=True)
+
+    # Flatten
+    X = x[:,0].flatten()
+    Y = x[:,1].flatten()
+    var.shape = num_pts, -1
+    var = var.flatten()[idx]
+
+    interp = LinearNDInterpolator(list(zip(X, Y)), var)
+
+    var_points = interp(xpoints[:,0], xpoints[:,1])
 
     return var_points
 

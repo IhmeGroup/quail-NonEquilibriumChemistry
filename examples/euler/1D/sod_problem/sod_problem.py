@@ -8,15 +8,15 @@ TimeStepping = {
     "InitialTime" : 0.,
     "FinalTime" : FinalTime,
     "CFL" : 0.2,
-    "TimeStepper" : "SSPRK3",
+    "TimeStepper" : "RK4",
 }
 
 
 Numerics = {
-    "SolutionOrder" : 1,
+    "SolutionOrder" : 4,
     "SolutionBasis" : "LagrangeSeg",
     "Solver" : "DG",
-    "ApplyLimiters" : "PositivityPreserving",
+    "ApplyLimiters" : "EntropyPreserving",
     "ArtificialViscosity" : False,
     "AVParameter" : 50.,
     "NodeType" : "Equidistant",
@@ -40,7 +40,9 @@ Mesh = {
 
 Physics = {
     "Type" : "Euler",
-    "ConvFluxNumerical" : "Roe",
+    "ConvFluxNumerical" : "HLLC",
+    # "ConvFluxNumerical" : "Roe",
+    # "ConvFluxNumerical" : "LaxFriedrichs",
     "GasConstant" : 1.,
     "SpecificHeatRatio" : 1.4,
 }

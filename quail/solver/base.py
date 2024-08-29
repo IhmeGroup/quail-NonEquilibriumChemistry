@@ -558,7 +558,7 @@ class SolverBase(ABC):
 
 			np.add.at(res, bgroup_elem_IDs, -resB)
 
-	def apply_limiter(self, U):
+	def apply_limiter(self, U,U1,U2):
 		'''
 		Applies the limiter to the solution array, U.
 
@@ -572,7 +572,7 @@ class SolverBase(ABC):
 		'''
 		for limiter in self.limiters:
 			if limiter is not None:
-				limiter.limit_solution(self, U)
+				limiter.limit_solution(self, U, U1, U2)
 
 	def get_min_max_state(self, Uq):
 		'''

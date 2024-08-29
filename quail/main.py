@@ -513,11 +513,11 @@ def process_post_file(post_file, auto_process):
 
     post_file = post_file.replace(".py","")
 
-    try:
-        print("\nRunning post-processing script")
-        postprocess = importlib.import_module(post_file)
-    except ModuleNotFoundError:
-        raise errors.FileReadError(f"{post_file}.py not found")
+    # try:
+    print("\nRunning post-processing script")
+    postprocess = importlib.import_module(post_file)
+    # except ModuleNotFoundError:
+    #     raise errors.FileReadError(f"{post_file}.py not found")
 
 
 def main():

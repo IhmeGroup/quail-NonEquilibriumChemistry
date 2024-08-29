@@ -96,6 +96,7 @@ class Euler(base.PhysicsBase):
                 euler_fcn_type.RiemannProblem: euler_fcns.RiemannProblem,
                 euler_fcn_type.ShuOsherProblem:
                     euler_fcns.ShuOsherProblem,
+                euler_fcn_type.StrongShock:euler_fcns.StrongShock,
             }
 
             self.source_map.update({

@@ -23,13 +23,13 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
-import errors
-import general
+from quail import errors
+from quail import general
 
-import meshing.tools as mesh_tools
+import quail.meshing.tools as mesh_tools
 
-import numerics.helpers.helpers as helpers
-import numerics.limiting.base as base
+import quail.numerics.helpers.helpers as helpers
+import quail.numerics.limiting.base as base
 
 
 POS_TOL = 1.e-10

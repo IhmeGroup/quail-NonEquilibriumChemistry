@@ -117,7 +117,7 @@ class PositivityPreserving(base.LimiterBase):
 		# Element quadrature weights
 		self.quad_wts_elem = elem_helpers.quad_wts
 
-	def limit_solution(self, solver, Uc):
+	def limit_solution(self, solver, Uc,rho_n,press_n):
 		# Unpack
 		physics = solver.physics
 		elem_helpers = solver.elem_helpers

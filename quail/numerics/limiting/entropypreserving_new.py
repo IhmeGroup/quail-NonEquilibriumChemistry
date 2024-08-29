@@ -220,6 +220,8 @@ class EntropyPreserving(base.LimiterBase):
 		# 		p_bar[elem_IDs, :, 0] - p_elem_faces[elem_IDs, i_neg_p, :])
 		theta[elem_IDs, i_neg_p] = (p_bar[elem_IDs, :, 0] - alpha*p_bar[elem_IDs, :, 0]) / (
 				p_bar[elem_IDs, :, 0] - p_elem_faces[elem_IDs, i_neg_p, :]+POS_TOL)
+		
+				# theta = np.abs((p_bar - np.exp(min_entropy)*rho_bar**1.4)/(p_bar - np.exp(min_entropy)*rho_bar**1.4 -(p_elem_faces-np.exp(min_entropy)*rho_elem_faces**1.4)+POS_TOL))
 
 		# Truncate theta2; otherwise, can get noticeably different
 		# results across machines, possibly due to poor conditioning in its
